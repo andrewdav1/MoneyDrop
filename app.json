@@ -1,4 +1,9 @@
 {
   "name": "MoneyDrop",
-  "displayName": "MoneyDrop"
+  "displayName": "MoneyDrop",
+  "plugins": [
+    "expo-barcode-scanner",
+    "@react-native-firebase/app",
+    "@react-native-firebase/auth"
+  ]
 }
