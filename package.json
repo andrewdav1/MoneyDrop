@@ -1,21 +1,50 @@
 {
   "name": "moneydrop",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "emulator": "firebase emulators:start --project demo-moneydrop --import=./emulator-data --export-on-exit=./emulator-data",
+    "emulator:clean": "firebase emulators:start --project demo-moneydrop",
+    "seed": "tsx scripts/seed.ts",
+    "dev": "cp .env.emulator .env.local && concurrently --names 'emulator,expo' --prefix-colors 'yellow,cyan' 'npm run emulator' 'expo start'",
+    "functions:build": "npm --prefix functions run build",
+    "functions:build:watch": "npm --prefix functions run build:watch",
+    "test": "npm --prefix functions run test",
+    "test:coverage": "npm --prefix functions run test:coverage"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "@stripe/stripe-react-native": "^0.59.2",
     "expo": "~55.0.6",
+    "expo-barcode-scanner": "^13.0.1",
+    "expo-camera": "^55.0.9",
+    "expo-constants": "^55.0.7",
+    "expo-firebase-recaptcha": "^2.3.1",
+    "expo-linking": "^55.0.7",
+    "expo-location": "^55.1.2",
+    "expo-notifications": "^55.0.12",
+    "expo-router": "^55.0.5",
+    "expo-secure-store": "^55.0.8",
     "expo-status-bar": "~55.0.4",
+    "expo-system-ui": "^55.0.9",
+    "expo-web-browser": "^55.0.9",
+    "firebase": "^12.10.0",
     "react": "19.2.0",
-    "react-native": "0.83.2"
+    "react-native": "0.83.2",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.24.0",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "@types/react": "~19.2.2",
+    "concurrently": "^9.0.0",
+    "firebase-admin": "^13.0.0",
+    "tsx": "^4.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -39,3 +39,16 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase emulator exports (keep the directory, ignore its contents)
+/emulator-data/*
+!/emulator-data/.gitkeep
+
+# Cloud Functions build output
+/functions/lib/
+
+# firebase-debug logs
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log

@@ -1,0 +1,33 @@
+{
+  "name": "moneydrop-functions",
+  "version": "1.0.0",
+  "description": "Firebase Cloud Functions for MoneyDrop",
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "jest --forceExit",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage --forceExit"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "expo-server-sdk": "^6.1.0",
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.0.0",
+    "stripe": "^20.4.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}

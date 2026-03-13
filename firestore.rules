@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+    // Users can read their own doc. Only the Admin SDK (Cloud Functions) can
+    // update wallet balances and claimedDropIds. Clients may create their own
+    // initial document on first sign-in (provisioned by the app).
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.walletBalance == 0
+        && request.resource.data.claimedDropIds == []
+        && request.resource.data.isAdmin == false;
+      // Clients may only touch their own push token — everything else
+      // (balance, kycStatus, claimedDropIds) is Cloud Function territory.
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["expoPushToken"]);
+      allow delete: if false;
+    }
+
+    // ── Drops ────────────────────────────────────────────────────────────────
+    // All signed-in users can read drops.
+    // Creates and deletes are admin-only.
+    // Updates are BLOCKED for clients — only the Cloud Function (Admin SDK)
+    // may update status, claimedAt, claimedByUid.
+
+    match /drops/{dropId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      allow update: if false; // claimDrop Cloud Function + scheduledDrops only
+    }
+
+    // ── Transactions ─────────────────────────────────────────────────────────
+    // Users can read their own transactions.
+    // All writes originate from the claimDrop Cloud Function via Admin SDK.
+
+    match /transactions/{txId} {
+      allow read: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Audit Logs ───────────────────────────────────────────────────────────
+    // Server-side only; no client access.
+
+    match /audit_logs/{logId} {
+      allow read, write: if false;
+    }
+
+    // ── Default deny ─────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
