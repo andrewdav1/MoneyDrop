@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { User } from "@/types";
-import { getUser, createUser } from "@/lib/firestore";
+import { getUser, createUser, subscribeToUser } from "@/lib/firestore";
 
 interface AuthState {
   firebaseUser: FirebaseUser | null;
@@ -24,22 +24,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setAppUser: (user) => set({ appUser: user }),
 
   initialize: () => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let userUnsub: (() => void) | null = null;
+
+    const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Tear down any previous user subscription
+      userUnsub?.();
+      userUnsub = null;
+
       set({ firebaseUser, isLoading: true });
 
       if (firebaseUser) {
-        let appUser = await getUser(firebaseUser.uid);
-        if (!appUser) {
-          // First login — provision the user document
+        // Ensure user document exists before subscribing
+        const existing = await getUser(firebaseUser.uid);
+        if (!existing) {
           await createUser(firebaseUser.uid, firebaseUser.phoneNumber ?? "");
-          appUser = await getUser(firebaseUser.uid);
         }
-        set({ appUser, isLoading: false, isInitialized: true });
+
+        // Subscribe to real-time updates so walletBalance, kycStatus, etc.
+        // stay current without requiring a re-login.
+        userUnsub = subscribeToUser(firebaseUser.uid, (appUser) => {
+          set({ appUser, isLoading: false, isInitialized: true });
+        });
       } else {
         set({ appUser: null, isLoading: false, isInitialized: true });
       }
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsub();
+      userUnsub?.();
+    };
   },
 }));
