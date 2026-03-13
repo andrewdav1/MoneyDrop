@@ -104,6 +104,19 @@ export function subscribeToActiveDrop(
   });
 }
 
+/** Subscribe to all drops ordered newest-first (admin use). */
+export function subscribeToAllDrops(
+  callback: (drops: Drop[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTIONS.drops),
+    orderBy("scheduledAt", "desc")
+  );
+  return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as Drop)));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Claim helpers
 // ---------------------------------------------------------------------------

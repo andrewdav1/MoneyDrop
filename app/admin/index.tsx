@@ -1,260 +1,174 @@
-import { useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   StyleSheet,
-  Alert,
-  ActivityIndicator,
   Modal,
   Share,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useRouter } from "expo-router";
 import QRCode from "react-native-qrcode-svg";
-import { db } from "@/lib/firebase";
+import { subscribeToAllDrops } from "@/lib/firestore";
 import { COLORS } from "@/constants/config";
+import type { Drop, DropStatus } from "@/types";
 
-interface DropForm {
-  title: string;
-  description: string;
-  city: string;
-  prizeAmountDollars: string;
-  clueText: string;
-  clueImageUrl: string;
-  claimRadiusMetres: string;
-  lat: string;
-  lng: string;
-  scheduledAt: string;
-  qrCodeSecret: string;
-}
+// ---------------------------------------------------------------------------
+// Status badge config
+// ---------------------------------------------------------------------------
 
-const DEFAULT_FORM: DropForm = {
-  title: "",
-  description: "",
-  city: "",
-  prizeAmountDollars: "100",
-  clueText: "",
-  clueImageUrl: "",
-  claimRadiusMetres: "100",
-  lat: "",
-  lng: "",
-  scheduledAt: "",
-  qrCodeSecret: "",
+const STATUS_META: Record<DropStatus, { label: string; color: string }> = {
+  scheduled: { label: "Scheduled", color: COLORS.secondary },
+  active:    { label: "Active",    color: COLORS.success },
+  claimed:   { label: "Claimed",   color: COLORS.textMuted },
+  expired:   { label: "Expired",   color: COLORS.danger },
 };
 
-/** Generate a cryptographically random 32-char hex secret. */
-function generateSecret(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
+// ---------------------------------------------------------------------------
+// Drop list screen
+// ---------------------------------------------------------------------------
 
 export default function AdminScreen() {
-  const [form, setForm] = useState<DropForm>(DEFAULT_FORM);
-  const [isSaving, setIsSaving] = useState(false);
+  const router = useRouter();
+  const [drops, setDrops] = useState<Drop[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedDrop, setSelectedDrop] = useState<Drop | null>(null);
 
-  // After a successful save: show the QR modal with the saved secret + title
-  const [savedDrop, setSavedDrop] = useState<{ title: string; secret: string } | null>(null);
-
-  function update(key: keyof DropForm, value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  const handleGenerate = useCallback(() => {
-    update("qrCodeSecret", generateSecret());
+  useEffect(() => {
+    return subscribeToAllDrops((all) => {
+      setDrops(all);
+      setLoading(false);
+    });
   }, []);
 
-  async function handleCreate() {
-    const { title, city, clueText, prizeAmountDollars, scheduledAt, qrCodeSecret, lat, lng } =
-      form;
-    if (!title || !city || !clueText || !scheduledAt || !qrCodeSecret || !lat || !lng) {
-      Alert.alert("Missing fields", "Please fill in all required fields.");
-      return;
-    }
-
+  async function handleShare(drop: Drop) {
     try {
-      setIsSaving(true);
-      await addDoc(collection(db, "drops"), {
-        title,
-        description: form.description,
-        city,
-        prizeAmountCents: Math.round(parseFloat(prizeAmountDollars) * 100),
-        clueText,
-        clueImageUrl: form.clueImageUrl,
-        claimRadiusMetres: parseInt(form.claimRadiusMetres, 10),
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
-        scheduledAt: new Date(scheduledAt),
-        qrCodeSecret,
-        status: "scheduled",
-        createdAt: serverTimestamp(),
+      await Share.share({
+        title: `QR Secret — ${drop.title}`,
+        message: `Drop: ${drop.title}\nCity: ${drop.city}\nQR Secret: ${drop.qrCodeSecret}`,
       });
-
-      setSavedDrop({ title, secret: qrCodeSecret });
-      setForm(DEFAULT_FORM);
-    } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Failed to create drop.");
-    } finally {
-      setIsSaving(false);
+    } catch {
+      // cancelled — no-op
     }
   }
 
-  async function handleShare() {
-    if (!savedDrop) return;
-    try {
-      await Share.share({
-        title: `QR Secret — ${savedDrop.title}`,
-        message: `Drop: ${savedDrop.title}\nQR Secret: ${savedDrop.secret}`,
-      });
-    } catch {
-      // user cancelled share sheet — no-op
-    }
+  function formatDate(value: any): string {
+    if (!value) return "—";
+    const date = value?.toDate ? value.toDate() : new Date(value);
+    return date.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function renderDrop({ item }: { item: Drop }) {
+    const meta = STATUS_META[item.status];
+    return (
+      <TouchableOpacity style={styles.row} onPress={() => setSelectedDrop(item)} activeOpacity={0.7}>
+        <View style={styles.rowLeft}>
+          <View style={styles.rowTop}>
+            <Text style={styles.dropTitle} numberOfLines={1}>{item.title}</Text>
+            <View style={[styles.badge, { backgroundColor: meta.color + "22", borderColor: meta.color }]}>
+              <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+          </View>
+          <Text style={styles.dropMeta}>
+            {item.city}  ·  ${(item.prizeAmountCents / 100).toFixed(0)}  ·  {formatDate(item.scheduledAt)}
+          </Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+    );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Admin — Create Drop</Text>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      {loading ? (
+        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={drops}
+          keyExtractor={(d) => d.id}
+          renderItem={renderDrop}
+          contentContainerStyle={drops.length === 0 ? styles.empty : styles.list}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No drops yet. Create one below.</Text>
+          }
+        />
+      )}
 
-        {(
-          [
-            { label: "Title *", key: "title", placeholder: "Downtown Treasure" },
-            { label: "Description", key: "description", placeholder: "Short description..." },
-            { label: "City *", key: "city", placeholder: "San Francisco" },
-            {
-              label: "Prize ($) *",
-              key: "prizeAmountDollars",
-              placeholder: "100",
-              keyboard: "decimal-pad",
-            },
-            {
-              label: "Clue Text *",
-              key: "clueText",
-              placeholder: "Find the golden statue near...",
-              multiline: true,
-            },
-            { label: "Clue Image URL", key: "clueImageUrl", placeholder: "https://..." },
-            {
-              label: "Claim Radius (m) *",
-              key: "claimRadiusMetres",
-              placeholder: "100",
-              keyboard: "number-pad",
-            },
-            { label: "Latitude *", key: "lat", placeholder: "37.7749", keyboard: "decimal-pad" },
-            {
-              label: "Longitude *",
-              key: "lng",
-              placeholder: "-122.4194",
-              keyboard: "decimal-pad",
-            },
-            { label: "Scheduled At (ISO) *", key: "scheduledAt", placeholder: "2026-03-13T18:00:00Z" },
-          ] as Array<{
-            label: string;
-            key: keyof DropForm;
-            placeholder: string;
-            keyboard?: any;
-            multiline?: boolean;
-          }>
-        ).map(({ label, key, placeholder, keyboard, multiline }) => (
-          <View key={key} style={styles.field}>
-            <Text style={styles.label}>{label}</Text>
-            <TextInput
-              style={[styles.input, multiline && styles.inputMulti]}
-              value={form[key]}
-              onChangeText={(v) => update(key, v)}
-              placeholder={placeholder}
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType={keyboard ?? "default"}
-              multiline={multiline}
-              numberOfLines={multiline ? 3 : 1}
-            />
-          </View>
-        ))}
+      {/* FAB */}
+      <TouchableOpacity style={styles.fab} onPress={() => router.push("/admin/create")}>
+        <Text style={styles.fabText}>+ New Drop</Text>
+      </TouchableOpacity>
 
-        {/* QR Code Secret — with Generate button */}
-        <View style={styles.field}>
-          <Text style={styles.label}>QR Code Secret *</Text>
-          <View style={styles.secretRow}>
-            <TextInput
-              style={[styles.input, styles.secretInput]}
-              value={form.qrCodeSecret}
-              onChangeText={(v) => update("qrCodeSecret", v)}
-              placeholder="Tap Generate or enter manually"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate}>
-              <Text style={styles.generateBtnText}>Generate</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Live QR code preview */}
-        {form.qrCodeSecret.length > 0 && (
-          <View style={styles.previewCard}>
-            <Text style={styles.previewLabel}>QR Preview</Text>
-            <View style={styles.qrWrapper}>
-              <QRCode
-                value={form.qrCodeSecret}
-                size={180}
-                backgroundColor={COLORS.card}
-                color={COLORS.text}
-              />
-            </View>
-            <Text style={styles.previewHint}>
-              This code will be embedded in the physical drop location.
-            </Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.createBtn, isSaving && styles.createBtnDisabled]}
-          onPress={handleCreate}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <ActivityIndicator color={COLORS.background} />
-          ) : (
-            <Text style={styles.createBtnText}>Create Drop</Text>
-          )}
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Post-save QR modal */}
+      {/* Drop detail / QR modal */}
       <Modal
-        visible={!!savedDrop}
+        visible={!!selectedDrop}
         transparent
-        animationType="fade"
-        onRequestClose={() => setSavedDrop(null)}
+        animationType="slide"
+        onRequestClose={() => setSelectedDrop(null)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Drop Created!</Text>
-            <Text style={styles.modalSubtitle}>{savedDrop?.title}</Text>
+            {selectedDrop && (
+              <>
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.modalTitle} numberOfLines={2}>{selectedDrop.title}</Text>
+                    <Text style={styles.modalMeta}>
+                      {selectedDrop.city}  ·  ${(selectedDrop.prizeAmountCents / 100).toFixed(0)}
+                    </Text>
+                  </View>
+                  <View style={[
+                    styles.badge,
+                    {
+                      backgroundColor: STATUS_META[selectedDrop.status].color + "22",
+                      borderColor: STATUS_META[selectedDrop.status].color,
+                    },
+                  ]}>
+                    <Text style={[styles.badgeText, { color: STATUS_META[selectedDrop.status].color }]}>
+                      {STATUS_META[selectedDrop.status].label}
+                    </Text>
+                  </View>
+                </View>
 
-            <View style={styles.qrWrapper}>
-              {savedDrop && (
-                <QRCode
-                  value={savedDrop.secret}
-                  size={220}
-                  backgroundColor="#ffffff"
-                  color="#000000"
-                />
-              )}
-            </View>
+                <Text style={styles.sectionLabel}>Scheduled</Text>
+                <Text style={styles.sectionValue}>{formatDate(selectedDrop.scheduledAt)}</Text>
 
-            <Text style={styles.secretText}>{savedDrop?.secret}</Text>
+                <Text style={styles.sectionLabel}>Clue</Text>
+                <Text style={styles.sectionValue}>{selectedDrop.clueText}</Text>
 
-            <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-              <Text style={styles.shareBtnText}>Share / Save QR</Text>
-            </TouchableOpacity>
+                <Text style={styles.sectionLabel}>Location</Text>
+                <Text style={styles.sectionValue}>
+                  {selectedDrop.lat.toFixed(5)}, {selectedDrop.lng.toFixed(5)}  ·  {selectedDrop.claimRadiusMetres}m radius
+                </Text>
 
-            <TouchableOpacity style={styles.doneBtn} onPress={() => setSavedDrop(null)}>
-              <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={styles.sectionLabel}>QR Code</Text>
+                <View style={styles.qrWrapper}>
+                  <QRCode
+                    value={selectedDrop.qrCodeSecret}
+                    size={180}
+                    backgroundColor="#ffffff"
+                    color="#000000"
+                  />
+                </View>
+                <Text style={styles.secretText}>{selectedDrop.qrCodeSecret}</Text>
+
+                <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(selectedDrop)}>
+                  <Text style={styles.shareBtnText}>Share / Save QR</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedDrop(null)}>
+              <Text style={styles.closeBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -263,117 +177,110 @@ export default function AdminScreen() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Styles
+// ---------------------------------------------------------------------------
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { padding: 24, paddingBottom: 48 },
-  title: { fontSize: 24, fontWeight: "800", color: COLORS.primary, marginBottom: 24 },
 
-  field: { marginBottom: 16 },
-  label: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: COLORS.text,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  inputMulti: { height: 80, textAlignVertical: "top" },
+  list: { padding: 16, paddingBottom: 100 },
+  empty: { flex: 1, justifyContent: "center", alignItems: "center", padding: 40 },
+  emptyText: { color: COLORS.textMuted, fontSize: 15, textAlign: "center" },
 
-  secretRow: { flexDirection: "row", gap: 8 },
-  secretInput: { flex: 1 },
-  generateBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    justifyContent: "center",
-  },
-  generateBtnText: { color: COLORS.background, fontSize: 14, fontWeight: "700" },
-
-  previewCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+  row: {
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: 20,
-  },
-  previewLabel: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 16,
-  },
-  qrWrapper: {
+    backgroundColor: COLORS.card,
+    borderRadius: 14,
     padding: 16,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
   },
-  previewHint: {
-    marginTop: 12,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: "center",
-  },
+  rowLeft: { flex: 1 },
+  rowTop: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  dropTitle: { flex: 1, fontSize: 16, fontWeight: "700", color: COLORS.text },
+  dropMeta: { fontSize: 13, color: COLORS.textMuted },
+  chevron: { fontSize: 22, color: COLORS.textMuted, marginLeft: 8 },
 
-  createBtn: {
+  badge: {
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeText: { fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+
+  separator: { height: 10 },
+
+  fab: {
+    position: "absolute",
+    bottom: 32,
+    right: 24,
+    left: 24,
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: 8,
   },
-  createBtnDisabled: { opacity: 0.6 },
-  createBtnText: { color: COLORS.background, fontSize: 17, fontWeight: "700" },
+  fabText: { color: COLORS.background, fontSize: 16, fontWeight: "800" },
 
   // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "flex-end",
   },
   modalCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 28,
-    alignItems: "center",
-    width: "100%",
+    paddingBottom: 40,
   },
-  modalTitle: { fontSize: 22, fontWeight: "800", color: COLORS.primary, marginBottom: 4 },
-  modalSubtitle: { fontSize: 15, color: COLORS.textMuted, marginBottom: 24 },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginBottom: 20,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text, marginBottom: 4 },
+  modalMeta: { fontSize: 14, color: COLORS.textMuted },
+
+  sectionLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+    marginTop: 14,
+  },
+  sectionValue: { fontSize: 14, color: COLORS.text, lineHeight: 20 },
+
+  qrWrapper: {
+    marginTop: 12,
+    alignSelf: "center",
+    padding: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+  },
   secretText: {
-    marginTop: 16,
+    marginTop: 10,
     fontSize: 11,
     color: COLORS.textMuted,
     fontFamily: "monospace" as any,
     textAlign: "center",
     letterSpacing: 0.5,
   },
+
   shareBtn: {
     marginTop: 20,
     backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 14,
-    paddingHorizontal: 32,
     alignItems: "center",
-    width: "100%",
   },
   shareBtnText: { color: COLORS.background, fontSize: 16, fontWeight: "700" },
-  doneBtn: { marginTop: 12, paddingVertical: 10 },
-  doneBtnText: { color: COLORS.textMuted, fontSize: 15 },
+
+  closeBtn: { marginTop: 12, alignItems: "center", paddingVertical: 10 },
+  closeBtnText: { color: COLORS.textMuted, fontSize: 15 },
 });

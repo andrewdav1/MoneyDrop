@@ -21,6 +21,9 @@ export default function AdminLayout() {
         headerTitleStyle: { fontWeight: "700" },
         contentStyle: { backgroundColor: COLORS.background },
       }}
-    />
+    >
+      <Stack.Screen name="index" options={{ title: "Drops" }} />
+      <Stack.Screen name="create" options={{ title: "New Drop" }} />
+    </Stack>
   );
 }
