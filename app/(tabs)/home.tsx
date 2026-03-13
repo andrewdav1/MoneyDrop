@@ -6,7 +6,7 @@ import { subscribeToAllDrops } from "@/lib/firestore";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { useAuthStore } from "@/store/authStore";
 import { COLORS } from "@/constants/config";
-import type { Drop, DropStatus } from "@/types";
+import type { Drop } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Filter config
@@ -28,8 +28,10 @@ const EMPTY_MESSAGES: Record<Filter, string> = {
   expired:   "No expired drops.",
 };
 
+const EXPIRY_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours, matches Cloud Function
+
 // ---------------------------------------------------------------------------
-// Drop card
+// Helpers
 // ---------------------------------------------------------------------------
 
 function toMs(value: any): number {
@@ -38,63 +40,81 @@ function toMs(value: any): number {
   return new Date(value).getTime();
 }
 
-function DropCard({ item, filter }: { item: Drop; filter: Filter }) {
+function formatScheduledAt(value: any): string {
+  const ms = toMs(value);
+  return new Date(ms).toLocaleString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Drop cards
+// ---------------------------------------------------------------------------
+
+function ActiveCard({ item }: { item: Drop }) {
+  const router = useRouter();
+  const prizeStr = `$${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}`;
+  const expiryMs = toMs(item.scheduledAt) + EXPIRY_WINDOW_MS;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <Text style={styles.liveTag}>🟢 LIVE</Text>
+        <Text style={styles.city}>📍 {item.city}</Text>
+      </View>
+      <Text style={styles.prize}>{prizeStr}</Text>
+      <View style={styles.expiryRow}>
+        <Text style={styles.expiryLabel}>Expires in</Text>
+        <CountdownTimer targetMs={expiryMs} />
+      </View>
+      <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push("/(tabs)/drop")}>
+        <Text style={styles.primaryBtnText}>View Clue →</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function UpcomingCard({ item }: { item: Drop }) {
+  const prizeStr = `$${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}`;
+  const targetMs = toMs(item.scheduledAt);
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <Text style={styles.upcomingTag}>⏳ UPCOMING</Text>
+        <Text style={styles.city}>📍 {item.city}</Text>
+      </View>
+      <Text style={styles.dropTitle}>{item.title}</Text>
+      <Text style={styles.scheduledDate}>{formatScheduledAt(item.scheduledAt)}</Text>
+      <CountdownTimer targetMs={targetMs} />
+      <Text style={styles.prize}>{prizeStr}</Text>
+    </View>
+  );
+}
+
+function MutedCard({ item, tag }: { item: Drop; tag: string }) {
   const router = useRouter();
   const prizeStr = `$${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}`;
 
-  if (filter === "active") {
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.liveTag}>🟢 LIVE</Text>
-          <Text style={styles.city}>📍 {item.city}</Text>
-        </View>
-        <Text style={styles.prize}>{prizeStr}</Text>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push("/(tabs)/drop")}>
-          <Text style={styles.primaryBtnText}>View Clue →</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (filter === "scheduled") {
-    const targetMs = toMs(item.scheduledAt);
-    return (
-      <View style={styles.card}>
-        <View style={styles.cardTop}>
-          <Text style={styles.upcomingTag}>⏳ UPCOMING</Text>
-          <Text style={styles.city}>📍 {item.city}</Text>
-        </View>
-        <Text style={styles.dropTitle}>{item.title}</Text>
-        <CountdownTimer targetMs={targetMs} />
-        <Text style={styles.prize}>{prizeStr}</Text>
-      </View>
-    );
-  }
-
-  if (filter === "claimed") {
-    return (
-      <View style={[styles.card, styles.cardMuted]}>
-        <View style={styles.cardTop}>
-          <Text style={styles.claimedTag}>✅ CLAIMED</Text>
-          <Text style={styles.city}>📍 {item.city}</Text>
-        </View>
-        <Text style={styles.dropTitleMuted}>{item.title}</Text>
-        <Text style={styles.prizeMuted}>{prizeStr}</Text>
-      </View>
-    );
-  }
-
-  // expired
   return (
-    <View style={[styles.card, styles.cardMuted]}>
+    <TouchableOpacity
+      style={[styles.card, styles.cardMuted]}
+      onPress={() => router.push(`/drop-detail/${item.id}`)}
+      activeOpacity={0.7}
+    >
       <View style={styles.cardTop}>
-        <Text style={styles.expiredTag}>💨 EXPIRED</Text>
+        <Text style={item.status === "claimed" ? styles.claimedTag : styles.expiredTag}>{tag}</Text>
         <Text style={styles.city}>📍 {item.city}</Text>
       </View>
       <Text style={styles.dropTitleMuted}>{item.title}</Text>
       <Text style={styles.prizeMuted}>{prizeStr}</Text>
-    </View>
+      <Text style={styles.tapHint}>Tap to view details →</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -118,6 +138,13 @@ export default function HomeScreen() {
   }, []);
 
   const filtered = allDrops.filter((d) => d.status === filter);
+
+  function renderDrop({ item }: { item: Drop }) {
+    if (item.status === "active")    return <ActiveCard item={item} />;
+    if (item.status === "scheduled") return <UpcomingCard item={item} />;
+    if (item.status === "claimed")   return <MutedCard item={item} tag="✅ CLAIMED" />;
+    return <MutedCard item={item} tag="💨 EXPIRED" />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -166,7 +193,7 @@ export default function HomeScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(d) => d.id}
-          renderItem={({ item }) => <DropCard item={item} filter={filter} />}
+          renderItem={renderDrop}
           contentContainerStyle={styles.list}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           showsVerticalScrollIndicator={false}
@@ -215,10 +242,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  pillSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
+  pillSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   pillText: { fontSize: 14, fontWeight: "600", color: COLORS.textMuted },
   pillTextSelected: { color: COLORS.background },
 
@@ -241,16 +265,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+
+  // Tags
   liveTag:     { fontSize: 13, fontWeight: "700", color: COLORS.success },
   upcomingTag: { fontSize: 13, fontWeight: "700", color: COLORS.secondary },
   claimedTag:  { fontSize: 13, fontWeight: "700", color: COLORS.success },
   expiredTag:  { fontSize: 13, fontWeight: "700", color: COLORS.textMuted },
-  city:        { fontSize: 14, color: COLORS.textMuted },
-  dropTitle:   { fontSize: 18, fontWeight: "700", color: COLORS.text, marginBottom: 4 },
-  dropTitleMuted: { fontSize: 18, fontWeight: "700", color: COLORS.textMuted, marginBottom: 8 },
-  prize: { fontSize: 44, fontWeight: "900", color: COLORS.primary, marginBottom: 20 },
-  prizeMuted: { fontSize: 32, fontWeight: "900", color: COLORS.textMuted },
 
+  city: { fontSize: 14, color: COLORS.textMuted },
+
+  // Text
+  dropTitle:     { fontSize: 18, fontWeight: "700", color: COLORS.text, marginBottom: 6 },
+  dropTitleMuted:{ fontSize: 18, fontWeight: "700", color: COLORS.textMuted, marginBottom: 8 },
+  scheduledDate: { fontSize: 14, color: COLORS.textMuted, marginBottom: 4 },
+  prize:     { fontSize: 44, fontWeight: "900", color: COLORS.primary, marginBottom: 4 },
+  prizeMuted:{ fontSize: 32, fontWeight: "900", color: COLORS.textMuted, marginBottom: 8 },
+  tapHint:   { fontSize: 12, color: COLORS.textMuted, marginTop: 4 },
+
+  // Expiry countdown
+  expiryRow:   { marginBottom: 16 },
+  expiryLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 2 },
+
+  // Buttons
   primaryBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
