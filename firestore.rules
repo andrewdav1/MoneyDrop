@@ -44,7 +44,7 @@ service cloud.firestore {
     match /drops/{dropId} {
       allow read: if isSignedIn();
       allow create, delete: if isAdmin();
-      allow update: if false; // claimDrop Cloud Function + scheduledDrops only
+      allow update: if isAdmin(); // admin client edits; Cloud Functions use Admin SDK (bypass rules)
     }
 
     // ── Transactions ─────────────────────────────────────────────────────────
