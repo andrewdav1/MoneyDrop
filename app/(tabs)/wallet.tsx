@@ -58,10 +58,11 @@ export default function WalletScreen() {
         <Text style={styles.balanceLabel}>Total Balance</Text>
         <Text style={styles.balance}>${(balanceCents / 100).toFixed(2)}</Text>
         <TouchableOpacity
-          style={styles.withdrawBtn}
+          style={[styles.withdrawBtn, balanceCents < 100 && styles.withdrawBtnDisabled]}
           onPress={() => router.push("/withdraw")}
+          disabled={balanceCents < 100}
         >
-          <Text style={styles.withdrawBtnText}>Withdraw →</Text>
+          <Text style={[styles.withdrawBtnText, balanceCents < 100 && styles.withdrawBtnTextDisabled]}>Withdraw →</Text>
         </TouchableOpacity>
       </View>
 
@@ -106,7 +107,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 28,
   },
+  withdrawBtnDisabled: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
   withdrawBtnText: { color: COLORS.background, fontSize: 15, fontWeight: "700" },
+  withdrawBtnTextDisabled: { color: COLORS.textMuted },
   sectionTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text, marginBottom: 12 },
   txRow: {
     flexDirection: "row",
