@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,11 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import app from "@/lib/firebase";
 import { sendSmsCode } from "@/lib/auth";
 import { COLORS } from "@/constants/config";
 
 export default function PhoneScreen() {
   const router = useRouter();
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const [phone, setPhone] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -31,10 +28,7 @@ export default function PhoneScreen() {
     }
     try {
       setIsSending(true);
-      const verificationId = await sendSmsCode(
-        phone,
-        recaptchaVerifier.current as any
-      );
+      const verificationId = await sendSmsCode(phone);
       router.push({
         pathname: "/(auth)/verify",
         params: { phone, verificationId },
@@ -51,11 +45,6 @@ export default function PhoneScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification
-      />
 
       <Text style={styles.logo}>💰</Text>
       <Text style={styles.title}>MoneyDrop</Text>
