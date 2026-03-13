@@ -11,7 +11,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_USE_EMULATOR": "false"
+        "EXPO_PUBLIC_USE_EMULATOR": "false",
+        "GOOGLE_SERVICES_PLIST": "$GOOGLE_SERVICES_PLIST"
       }
     },
     "development:simulator": {
@@ -28,13 +29,15 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_USE_EMULATOR": "false"
+        "EXPO_PUBLIC_USE_EMULATOR": "false",
+        "GOOGLE_SERVICES_PLIST": "$GOOGLE_SERVICES_PLIST"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_USE_EMULATOR": "false"
+        "EXPO_PUBLIC_USE_EMULATOR": "false",
+        "GOOGLE_SERVICES_PLIST": "$GOOGLE_SERVICES_PLIST"
       }
     }
   },
