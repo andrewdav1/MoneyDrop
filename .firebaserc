@@ -1,7 +1,7 @@
 {
   "projects": {
-    "default": "demo-moneydrop",
-    "production": "moneydrop-prod"
+    "default": "moneydrop-cb71e",
+    "emulator": "demo-moneydrop"
   },
   "targets": {},
   "etags": {}

@@ -45,7 +45,12 @@
           "locationAlwaysAndWhenInUsePermission": "Allow MoneyDrop to use your location to verify you are near the drop."
         }
       ],
-      "@stripe/stripe-react-native",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.moneydrop.app"
+        }
+      ],
       [
         "expo-notifications",
         {
