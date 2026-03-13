@@ -46,21 +46,62 @@ const STATUS_COLOR: Record<DropStatus, string> = {
 // ---------------------------------------------------------------------------
 
 export default function DropDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const {
+    id,
+    title,
+    city,
+    status,
+    clueText,
+    clueImageUrl,
+    prizeAmountCents,
+    scheduledAtMs,
+  } = useLocalSearchParams<{
+    id: string;
+    title?: string;
+    city?: string;
+    status?: string;
+    clueText?: string;
+    clueImageUrl?: string;
+    prizeAmountCents?: string;
+    scheduledAtMs?: string;
+  }>();
+
   const router = useRouter();
-  const [drop, setDrop] = useState<Drop | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Build initial drop from route params so the screen renders instantly.
+  // The Firestore subscription below will silently update if data changed.
+  const initialDrop: Drop | null = title
+    ? {
+        id: id ?? "",
+        title,
+        city: city ?? "",
+        status: (status ?? "expired") as DropStatus,
+        clueText: clueText ?? "",
+        clueImageUrl: clueImageUrl ?? "",
+        prizeAmountCents: parseInt(prizeAmountCents ?? "0", 10),
+        scheduledAt: new Date(parseInt(scheduledAtMs ?? "0", 10)),
+        description: "",
+        lat: 0,
+        lng: 0,
+        claimRadiusMetres: 0,
+        qrCodeSecret: "",
+        createdAt: new Date(),
+      }
+    : null;
+
+  const [drop, setDrop] = useState<Drop | null>(initialDrop);
+  const [isLoading, setIsLoading] = useState(initialDrop === null);
 
   useEffect(() => {
     if (!id) return;
     return subscribeToDrop(id, (d) => {
-      setDrop(d);
+      if (d) setDrop(d);
       setIsLoading(false);
     });
   }, [id]);
 
   const backButton = (
-    <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+    <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
       <Text style={styles.backBtnText}>‹ Back</Text>
     </TouchableOpacity>
   );
@@ -141,8 +182,7 @@ export default function DropDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
-  backBtn: { paddingHorizontal: 4 },
-  backBtnText: { color: COLORS.primary, fontSize: 17, fontWeight: "600" },
+  backBtnText: { color: COLORS.primary, fontSize: 17, fontWeight: "600", paddingLeft: 8 },
   scroll: { padding: 24, paddingBottom: 48 },
   muted: { color: COLORS.textMuted, fontSize: 15 },
 

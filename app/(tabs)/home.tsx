@@ -104,7 +104,19 @@ function MutedCard({ item, tag }: { item: Drop; tag: string }) {
   return (
     <TouchableOpacity
       style={[styles.card, styles.cardMuted]}
-      onPress={() => router.push(`/drop-detail/${item.id}`)}
+      onPress={() => router.push({
+        pathname: "/drop-detail/[id]",
+        params: {
+          id: item.id,
+          title: item.title,
+          city: item.city,
+          status: item.status,
+          clueText: item.clueText ?? "",
+          clueImageUrl: item.clueImageUrl ?? "",
+          prizeAmountCents: String(item.prizeAmountCents ?? 0),
+          scheduledAtMs: String(toMs(item.scheduledAt)),
+        },
+      })}
       activeOpacity={0.7}
     >
       <View style={styles.cardTop}>
