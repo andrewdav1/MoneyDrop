@@ -3,15 +3,27 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useActiveDrop } from "@/hooks/useActiveDrop";
 import { CountdownTimer } from "@/components/CountdownTimer";
+import { useAuthStore } from "@/store/authStore";
 import { COLORS } from "@/constants/config";
 
 export default function HomeScreen() {
   const router = useRouter();
   const { drop, isLoading, msUntilDrop } = useActiveDrop();
+  const isAdmin = useAuthStore((s) => s.appUser?.isAdmin ?? false);
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>💰 MoneyDrop</Text>
+      <View style={styles.topRow}>
+        <Text style={styles.title}>💰 MoneyDrop</Text>
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.adminBtn}
+            onPress={() => router.push("/admin")}
+          >
+            <Text style={styles.adminBtnText}>Admin</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {isLoading ? (
         <Text style={styles.muted}>Loading today's drop...</Text>
@@ -59,11 +71,30 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingHorizontal: 24,
   },
+  topRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 32,
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 32,
+  },
+  adminBtn: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  adminBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
   },
   card: {
     width: "100%",

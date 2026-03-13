@@ -6,12 +6,16 @@ import { COLORS } from "@/constants/config";
 export default function AdminLayout() {
   const router = useRouter();
   const appUser = useAuthStore((s) => s.appUser);
+  const isInitialized = useAuthStore((s) => s.isInitialized);
 
   useEffect(() => {
-    if (appUser !== null && !appUser.isAdmin) {
+    // Wait until auth is fully resolved before checking admin status.
+    // Without this, a missing/false isAdmin field bounces admins on first load.
+    if (!isInitialized) return;
+    if (appUser === null || !appUser.isAdmin) {
       router.replace("/(tabs)/home");
     }
-  }, [appUser]);
+  }, [appUser, isInitialized]);
 
   return (
     <Stack
