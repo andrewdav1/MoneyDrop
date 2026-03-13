@@ -5,37 +5,25 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Modal,
-  Share,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import QRCode from "react-native-qrcode-svg";
 import { subscribeToAllDrops } from "@/lib/firestore";
 import { COLORS } from "@/constants/config";
 import type { Drop, DropStatus } from "@/types";
 
-// ---------------------------------------------------------------------------
-// Status badge config
-// ---------------------------------------------------------------------------
-
 const STATUS_META: Record<DropStatus, { label: string; color: string }> = {
   scheduled: { label: "Upcoming", color: COLORS.secondary },
-  active:    { label: "Active",    color: COLORS.success },
-  claimed:   { label: "Claimed",   color: COLORS.textMuted },
-  expired:   { label: "Expired",   color: COLORS.danger },
+  active:    { label: "Active",   color: COLORS.success },
+  claimed:   { label: "Claimed",  color: COLORS.textMuted },
+  expired:   { label: "Expired",  color: COLORS.danger },
 };
-
-// ---------------------------------------------------------------------------
-// Drop list screen
-// ---------------------------------------------------------------------------
 
 export default function AdminScreen() {
   const router = useRouter();
   const [drops, setDrops] = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDrop, setSelectedDrop] = useState<Drop | null>(null);
 
   useEffect(() => {
     return subscribeToAllDrops((all) => {
@@ -43,17 +31,6 @@ export default function AdminScreen() {
       setLoading(false);
     });
   }, []);
-
-  async function handleShare(drop: Drop) {
-    try {
-      await Share.share({
-        title: `QR Secret — ${drop.title}`,
-        message: `Drop: ${drop.title}\nCity: ${drop.city}\nQR Secret: ${drop.qrCodeSecret}`,
-      });
-    } catch {
-      // cancelled — no-op
-    }
-  }
 
   function formatDate(value: any): string {
     if (!value) return "—";
@@ -69,7 +46,11 @@ export default function AdminScreen() {
   function renderDrop({ item }: { item: Drop }) {
     const meta = STATUS_META[item.status];
     return (
-      <TouchableOpacity style={styles.row} onPress={() => setSelectedDrop(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.row}
+        onPress={() => router.push(`/admin/${item.id}`)}
+        activeOpacity={0.7}
+      >
         <View style={styles.rowLeft}>
           <View style={styles.rowTop}>
             <Text style={styles.dropTitle} numberOfLines={1}>{item.title}</Text>
@@ -103,83 +84,12 @@ export default function AdminScreen() {
         />
       )}
 
-      {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => router.push("/admin/create")}>
         <Text style={styles.fabText}>+ New Drop</Text>
       </TouchableOpacity>
-
-      {/* Drop detail / QR modal */}
-      <Modal
-        visible={!!selectedDrop}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedDrop(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            {selectedDrop && (
-              <>
-                <View style={styles.modalHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modalTitle} numberOfLines={2}>{selectedDrop.title}</Text>
-                    <Text style={styles.modalMeta}>
-                      {selectedDrop.city}  ·  ${(selectedDrop.prizeAmountCents / 100).toFixed(0)}
-                    </Text>
-                  </View>
-                  <View style={[
-                    styles.badge,
-                    {
-                      backgroundColor: STATUS_META[selectedDrop.status].color + "22",
-                      borderColor: STATUS_META[selectedDrop.status].color,
-                    },
-                  ]}>
-                    <Text style={[styles.badgeText, { color: STATUS_META[selectedDrop.status].color }]}>
-                      {STATUS_META[selectedDrop.status].label}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.sectionLabel}>Scheduled</Text>
-                <Text style={styles.sectionValue}>{formatDate(selectedDrop.scheduledAt)}</Text>
-
-                <Text style={styles.sectionLabel}>Clue</Text>
-                <Text style={styles.sectionValue}>{selectedDrop.clueText}</Text>
-
-                <Text style={styles.sectionLabel}>Location</Text>
-                <Text style={styles.sectionValue}>
-                  {selectedDrop.lat.toFixed(5)}, {selectedDrop.lng.toFixed(5)}  ·  {selectedDrop.claimRadiusMetres}m radius
-                </Text>
-
-                <Text style={styles.sectionLabel}>QR Code</Text>
-                <View style={styles.qrWrapper}>
-                  <QRCode
-                    value={selectedDrop.qrCodeSecret}
-                    size={180}
-                    backgroundColor="#ffffff"
-                    color="#000000"
-                  />
-                </View>
-                <Text style={styles.secretText}>{selectedDrop.qrCodeSecret}</Text>
-
-                <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(selectedDrop)}>
-                  <Text style={styles.shareBtnText}>Share / Save QR</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedDrop(null)}>
-              <Text style={styles.closeBtnText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
@@ -222,65 +132,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   fabText: { color: COLORS.background, fontSize: 16, fontWeight: "800" },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
-    justifyContent: "flex-end",
-  },
-  modalCard: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 28,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginBottom: 20,
-  },
-  modalTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text, marginBottom: 4 },
-  modalMeta: { fontSize: 14, color: COLORS.textMuted },
-
-  sectionLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginBottom: 4,
-    marginTop: 14,
-  },
-  sectionValue: { fontSize: 14, color: COLORS.text, lineHeight: 20 },
-
-  qrWrapper: {
-    marginTop: 12,
-    alignSelf: "center",
-    padding: 16,
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-  },
-  secretText: {
-    marginTop: 10,
-    fontSize: 11,
-    color: COLORS.textMuted,
-    fontFamily: "monospace" as any,
-    textAlign: "center",
-    letterSpacing: 0.5,
-  },
-
-  shareBtn: {
-    marginTop: 20,
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  shareBtnText: { color: COLORS.background, fontSize: 16, fontWeight: "700" },
-
-  closeBtn: { marginTop: 12, alignItems: "center", paddingVertical: 10 },
-  closeBtnText: { color: COLORS.textMuted, fontSize: 15 },
 });

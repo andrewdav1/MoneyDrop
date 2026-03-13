@@ -5,6 +5,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -102,6 +103,29 @@ export function subscribeToActiveDrop(
     const d = snap.docs[0];
     callback({ id: d.id, ...d.data() } as unknown as Drop);
   });
+}
+
+/** Subscribe to a single drop document by ID. */
+export function subscribeToDrop(
+  dropId: string,
+  callback: (drop: Drop | null) => void
+): Unsubscribe {
+  return onSnapshot(doc(db, COLLECTIONS.drops, dropId), (snap) => {
+    callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as unknown as Drop) : null);
+  });
+}
+
+/** Update specific fields on a drop document. */
+export async function updateDrop(
+  dropId: string,
+  data: Record<string, unknown>
+): Promise<void> {
+  await updateDoc(doc(db, COLLECTIONS.drops, dropId), data);
+}
+
+/** Permanently delete a drop document. */
+export async function deleteDrop(dropId: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTIONS.drops, dropId));
 }
 
 /** Subscribe to all currently active drops ordered by scheduledAt asc. */

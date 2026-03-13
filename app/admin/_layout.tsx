@@ -28,6 +28,7 @@ export default function AdminLayout() {
     >
       <Stack.Screen name="index" options={{ title: "Drops" }} />
       <Stack.Screen name="create" options={{ title: "New Drop" }} />
+      <Stack.Screen name="[id]" options={{ title: "Edit Drop" }} />
     </Stack>
   );
 }
