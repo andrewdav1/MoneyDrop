@@ -1,24 +1,54 @@
 import { View, Text, Image, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useActiveDrop } from "@/hooks/useActiveDrop";
+import { useActiveDrops } from "@/hooks/useActiveDrops";
 import { COLORS } from "@/constants/config";
+import type { Drop } from "@/types";
+
+function DropCard({ drop }: { drop: Drop }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.metaRow}>
+        <Text style={styles.badge}>{drop.city}</Text>
+        <Text style={[styles.badge, styles.badgeLive]}>🟢 LIVE</Text>
+      </View>
+
+      {drop.clueImageUrl ? (
+        <Image source={{ uri: drop.clueImageUrl }} style={styles.clueImage} resizeMode="cover" />
+      ) : (
+        <View style={styles.clueImagePlaceholder}>
+          <Text style={styles.placeholderText}>📸 No clue image</Text>
+        </View>
+      )}
+
+      <View style={styles.clueBox}>
+        <Text style={styles.clueLabel}>Clue</Text>
+        <Text style={styles.clueText}>{drop.clueText}</Text>
+      </View>
+
+      <View style={styles.prizeBox}>
+        <Text style={styles.prizeLabel}>Prize</Text>
+        <Text style={styles.prize}>${((drop.prizeAmountCents ?? 0) / 100).toFixed(2)}</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function DropScreen() {
-  const { drop, isLoading } = useActiveDrop();
+  const { drops, isLoading } = useActiveDrops();
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.muted}>Loading clue...</Text>
+        <Text style={styles.muted}>Loading clues...</Text>
       </SafeAreaView>
     );
   }
 
-  if (!drop || (drop.status !== "active" && drop.status !== "scheduled")) {
+  if (drops.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>📍 Today's Drop</Text>
-        <Text style={styles.muted}>No active drop right now.</Text>
+        <Text style={styles.title}>📍 Active Drops</Text>
+        <Text style={styles.muted}>No active drops right now.</Text>
       </SafeAreaView>
     );
   }
@@ -26,32 +56,10 @@ export default function DropScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>📍 Today's Drop</Text>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.badge}>{drop.city}</Text>
-          <Text style={[styles.badge, drop.status === "active" ? styles.badgeLive : styles.badgeScheduled]}>
-            {drop.status === "active" ? "🟢 LIVE" : "⏳ COMING SOON"}
-          </Text>
-        </View>
-
-        {drop.clueImageUrl ? (
-          <Image source={{ uri: drop.clueImageUrl }} style={styles.clueImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.clueImagePlaceholder}>
-            <Text style={styles.placeholderText}>📸 Clue image loading...</Text>
-          </View>
-        )}
-
-        <View style={styles.clueBox}>
-          <Text style={styles.clueLabel}>Clue</Text>
-          <Text style={styles.clueText}>{drop.clueText}</Text>
-        </View>
-
-        <View style={styles.prizeBox}>
-          <Text style={styles.prizeLabel}>Prize</Text>
-          <Text style={styles.prize}>${((drop.prizeAmountCents ?? 0) / 100).toFixed(2)}</Text>
-        </View>
+        <Text style={styles.title}>📍 Active Drops</Text>
+        {drops.map((drop) => (
+          <DropCard key={drop.id} drop={drop} />
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -64,9 +72,17 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "800",
     color: COLORS.primary,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  metaRow: { flexDirection: "row", gap: 8, marginBottom: 20 },
+  card: {
+    marginBottom: 24,
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  metaRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
   badge: {
     backgroundColor: COLORS.surface,
     color: COLORS.text,
@@ -80,44 +96,57 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   badgeLive: { borderColor: COLORS.success, color: COLORS.success },
-  badgeScheduled: { borderColor: COLORS.textMuted },
   clueImage: {
     width: "100%",
-    height: 260,
-    borderRadius: 16,
-    marginBottom: 20,
+    height: 220,
+    borderRadius: 14,
+    marginBottom: 16,
   },
   clueImagePlaceholder: {
     width: "100%",
-    height: 260,
-    borderRadius: 16,
+    height: 220,
+    borderRadius: 14,
     backgroundColor: COLORS.surface,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   placeholderText: { color: COLORS.textMuted },
   clueBox: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  clueLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: "700", marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 },
-  clueText: { fontSize: 17, color: COLORS.text, lineHeight: 26 },
+  clueLabel: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: "700",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  clueText: { fontSize: 16, color: COLORS.text, lineHeight: 24 },
   prizeBox: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.primary,
   },
-  prizeLabel: { fontSize: 12, color: COLORS.primary, fontWeight: "700", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 },
-  prize: { fontSize: 40, fontWeight: "900", color: COLORS.primary },
+  prizeLabel: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: "700",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  prize: { fontSize: 36, fontWeight: "900", color: COLORS.primary },
   muted: { color: COLORS.textMuted, fontSize: 16, textAlign: "center", marginTop: 60 },
 });

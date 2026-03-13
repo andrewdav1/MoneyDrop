@@ -78,7 +78,7 @@ export async function claimDropHandler(
         }
 
         // ── 5. Expiry check ───────────────────────────────────────────────
-        const CLAIM_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+        const CLAIM_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
         const scheduledMs = drop.scheduledAt.toMillis();
         if (Date.now() > scheduledMs + CLAIM_WINDOW_MS) {
           // Mark expired and bail — we'll let the scheduled function handle it

@@ -104,6 +104,20 @@ export function subscribeToActiveDrop(
   });
 }
 
+/** Subscribe to all currently active drops ordered by scheduledAt asc. */
+export function subscribeToActiveDrops(
+  callback: (drops: Drop[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, COLLECTIONS.drops),
+    where("status", "==", "active"),
+    orderBy("scheduledAt", "asc")
+  );
+  return onSnapshot(q, (snap: QuerySnapshot<DocumentData>) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() } as unknown as Drop)));
+  });
+}
+
 /** Subscribe to all drops ordered newest-first (admin use). */
 export function subscribeToAllDrops(
   callback: (drops: Drop[]) => void

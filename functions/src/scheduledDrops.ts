@@ -18,7 +18,7 @@ export const activateScheduledDrops = onSchedule(
   async () => {
     const firestore = db();
     const now = Timestamp.now();
-    const CLAIM_WINDOW_SECS = 30 * 60; // 30 minutes
+    const CLAIM_WINDOW_SECS = 2 * 60 * 60; // 2 hours
 
     const [toActivate, toExpire] = await Promise.all([
       // Drops ready to go live

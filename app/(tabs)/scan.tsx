@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } fr
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useActiveDrop } from "@/hooks/useActiveDrop";
+import { useActiveDrops } from "@/hooks/useActiveDrops";
 import { claimDrop } from "@/lib/firestore";
 import { COLORS } from "@/constants/config";
 
@@ -12,14 +12,22 @@ export default function ScanScreen() {
   const [scanned, setScanned] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
 
-  const { drop } = useActiveDrop();
+  const { drops } = useActiveDrops();
 
   async function handleBarCodeScanned({ data }: { data: string }) {
     if (scanned || isClaiming) return;
     setScanned(true);
 
-    if (!drop || drop.status !== "active") {
+    if (drops.length === 0) {
       Alert.alert("No Active Drop", "There is no active drop to claim right now.");
+      setScanned(false);
+      return;
+    }
+
+    // Match the scanned QR secret against all active drops
+    const matchedDrop = drops.find((d) => d.qrCodeSecret === data);
+    if (!matchedDrop) {
+      Alert.alert("Not Recognized", "This QR code doesn't match any active drop.");
       setScanned(false);
       return;
     }
@@ -35,14 +43,13 @@ export default function ScanScreen() {
         coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       }
 
-      const result = await claimDrop(drop.id, data, coords);
+      const result = await claimDrop(matchedDrop.id, data, coords);
       Alert.alert(
         result.success ? "🎉 Claimed!" : "Not Valid",
         result.message,
         [{ text: "OK", onPress: () => setScanned(false) }]
       );
     } catch (e: any) {
-      // Firebase HttpsError surfaces as e.message
       Alert.alert("Could Not Claim", e.message ?? "Something went wrong.");
       setScanned(false);
     } finally {
@@ -66,6 +73,13 @@ export default function ScanScreen() {
     );
   }
 
+  const hint =
+    drops.length === 0
+      ? "Waiting for an active drop..."
+      : drops.length === 1
+      ? `Scanning for: ${drops[0].city} drop`
+      : `${drops.length} active drops — scan any QR code`;
+
   return (
     <View style={styles.fullscreen}>
       <CameraView
@@ -79,11 +93,7 @@ export default function ScanScreen() {
       <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <Text style={styles.overlayTitle}>Scan the QR Code</Text>
         <View style={styles.viewfinder} />
-        <Text style={styles.overlayHint}>
-          {drop?.status === "active"
-            ? `Scanning for: ${drop.city} drop`
-            : "Waiting for an active drop..."}
-        </Text>
+        <Text style={styles.overlayHint}>{hint}</Text>
 
         {isClaiming && (
           <View style={styles.claimingOverlay}>

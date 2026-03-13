@@ -1,15 +1,35 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useActiveDrop } from "@/hooks/useActiveDrop";
-import { CountdownTimer } from "@/components/CountdownTimer";
+import { useActiveDrops } from "@/hooks/useActiveDrops";
 import { useAuthStore } from "@/store/authStore";
 import { COLORS } from "@/constants/config";
+import type { Drop } from "@/types";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { drop, isLoading, msUntilDrop } = useActiveDrop();
+  const { drops, isLoading } = useActiveDrops();
   const isAdmin = useAuthStore((s) => s.appUser?.isAdmin ?? false);
+
+  function renderDrop({ item }: { item: Drop }) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardTop}>
+          <Text style={styles.liveTag}>🟢 LIVE</Text>
+          <Text style={styles.city}>📍 {item.city}</Text>
+        </View>
+        <Text style={styles.prize}>
+          ${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}
+        </Text>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => router.push("/(tabs)/drop")}
+        >
+          <Text style={styles.primaryBtnText}>View Clue →</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -26,38 +46,20 @@ export default function HomeScreen() {
       </View>
 
       {isLoading ? (
-        <Text style={styles.muted}>Loading today's drop...</Text>
-      ) : drop?.status === "active" ? (
-        <View style={styles.card}>
-          <Text style={styles.liveTag}>🟢 DROP IS LIVE</Text>
-          <Text style={styles.prize}>
-            ${((drop.prizeAmountCents ?? 0) / 100).toFixed(2)}
-          </Text>
-          <Text style={styles.city}>📍 {drop.city}</Text>
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => router.push("/(tabs)/drop")}
-          >
-            <Text style={styles.primaryBtnText}>View Clue →</Text>
-          </TouchableOpacity>
-        </View>
-      ) : drop?.status === "scheduled" ? (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Next drop in</Text>
-          <CountdownTimer
-            targetMs={drop.scheduledAt instanceof Date
-              ? drop.scheduledAt.getTime()
-              : (drop.scheduledAt as any).seconds * 1000}
-          />
-          <Text style={styles.prize}>
-            ${((drop.prizeAmountCents ?? 0) / 100).toFixed(2)} prize
-          </Text>
-          <Text style={styles.city}>📍 {drop.city}</Text>
+        <Text style={styles.muted}>Loading drops...</Text>
+      ) : drops.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.muted}>No active drops right now.{"\n"}Check back soon!</Text>
         </View>
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.muted}>No drop scheduled yet.{"\n"}Check back soon!</Text>
-        </View>
+        <FlatList
+          data={drops}
+          keyExtractor={(d) => d.id}
+          renderItem={renderDrop}
+          contentContainerStyle={styles.list}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </SafeAreaView>
   );
@@ -67,7 +69,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    alignItems: "center",
     paddingTop: 24,
     paddingHorizontal: 24,
   },
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
@@ -96,34 +97,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  list: {
+    paddingBottom: 32,
+  },
+  separator: { height: 12 },
   card: {
-    width: "100%",
     backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 28,
-    alignItems: "center",
+    padding: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  liveTag: { fontSize: 13, fontWeight: "700", color: COLORS.success, marginBottom: 12 },
-  cardLabel: { fontSize: 15, color: COLORS.textMuted, marginBottom: 12 },
+  cardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  liveTag: { fontSize: 13, fontWeight: "700", color: COLORS.success },
+  city: { fontSize: 14, color: COLORS.textMuted },
   prize: {
-    fontSize: 48,
+    fontSize: 44,
     fontWeight: "900",
     color: COLORS.primary,
-    marginBottom: 8,
+    marginBottom: 20,
   },
-  city: { fontSize: 17, color: COLORS.text, marginBottom: 24 },
   primaryBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 14,
-    paddingHorizontal: 32,
+    alignItems: "center",
   },
   primaryBtnText: {
     color: COLORS.background,
     fontSize: 16,
     fontWeight: "700",
+  },
+  emptyCard: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   muted: {
     color: COLORS.textMuted,
