@@ -22,16 +22,18 @@ export default function PhoneScreen() {
 
   async function handleSend() {
     setError(null);
-    if (!phone.startsWith("+")) {
-      setError("Enter your number in international format (e.g. +14155552671).");
+    const digits = phone.replace(/\D/g, "");
+    const normalized = phone.startsWith("+") ? phone : `+1${digits}`;
+    if (normalized.length < 10) {
+      setError("Please enter a valid phone number.");
       return;
     }
     try {
       setIsSending(true);
-      const verificationId = await sendSmsCode(phone);
+      const verificationId = await sendSmsCode(normalized);
       router.push({
         pathname: "/(auth)/verify",
-        params: { phone, verificationId },
+        params: { phone: normalized, verificationId },
       });
     } catch (e: any) {
       setError(e.message ?? "Failed to send code. Please try again.");
@@ -48,13 +50,13 @@ export default function PhoneScreen() {
 
       <Text style={styles.logo}>💰</Text>
       <Text style={styles.title}>MoneyDrop</Text>
-      <Text style={styles.subtitle}>Enter your phone number to get started.</Text>
+      <Text style={styles.subtitle}>Enter your phone number to get started. US numbers can skip the country code.</Text>
 
       <TextInput
         style={styles.input}
         value={phone}
         onChangeText={setPhone}
-        placeholder="+1 415 555 2671"
+        placeholder="(415) 555-2671"
         placeholderTextColor={COLORS.textMuted}
         keyboardType="phone-pad"
         autoFocus
