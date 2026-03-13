@@ -54,9 +54,6 @@ export const createVerificationSession = onCall<
           require_matching_selfie: true,
         },
       },
-      // Return user to the withdraw screen in the app after completion.
-      // expo-web-browser's openAuthSessionAsync will close when this scheme fires.
-      return_url: "moneydrop://withdraw",
       // uid stored in metadata so the webhook can find the user
       metadata: { uid },
     });

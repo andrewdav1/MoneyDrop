@@ -92,30 +92,10 @@ export default function WithdrawScreen() {
     try {
       const { verificationUrl } = await callCreateVerificationSession();
 
-      // Open Stripe's hosted identity capture page.
-      // expo-web-browser closes the session when Stripe redirects back to
-      // the `moneydrop://` scheme (configured as return_url on the server).
-      const result = await WebBrowser.openAuthSessionAsync(
-        verificationUrl,
-        "moneydrop://withdraw"
-      );
-
-      if (result.type === "success") {
-        // User completed the flow — show pending while webhook processes.
-        // kycStatus will transition to "verified" or "requires_input" via
-        // the real-time Firestore subscription above.
-        Alert.alert(
-          "Documents submitted ✓",
-          "We're verifying your identity. You'll see an update here in seconds."
-        );
-      } else if (result.type === "cancel" || result.type === "dismiss") {
-        // User closed the browser. kycStatus stays "pending" until the
-        // stripeWebhook function sets it back to "none" via the canceled event.
-        Alert.alert(
-          "Verification paused",
-          "You can restart verification at any time."
-        );
-      }
+      // Open Stripe's hosted identity capture page in a browser.
+      // When the user finishes or closes, the Stripe webhook fires and
+      // kycStatus updates automatically via the real-time subscription above.
+      await WebBrowser.openBrowserAsync(verificationUrl);
     } catch (err: any) {
       Alert.alert("Error", err?.message ?? "Could not start verification. Please try again.");
     } finally {
