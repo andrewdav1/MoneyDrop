@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.moneydrop.app"
+      "bundleIdentifier": "com.adavz.moneydrop",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,13 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.moneydrop.app",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -48,7 +57,7 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.moneydrop.app"
+          "merchantIdentifier": "merchant.com.adavz.moneydrop"
         }
       ],
       [
@@ -58,12 +67,20 @@
           "color": "#FFD700",
           "defaultChannel": "drops",
           "androidMode": "default",
-          "sounds": ["./assets/notification.wav"]
+          "sounds": [
+            "./assets/notification.wav"
+          ]
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "155906e1-6c2e-40b7-83c5-ca05a999f11e"
+      }
     }
   }
 }
