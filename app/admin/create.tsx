@@ -28,6 +28,7 @@ interface DropForm {
   title: string;
   description: string;
   city: string;
+  state: string;
   prizeAmountDollars: string;
   clueText: string;
   claimRadiusMetres: string;
@@ -40,6 +41,7 @@ const DEFAULT_FORM: DropForm = {
   title: "",
   description: "",
   city: "",
+  state: "",
   prizeAmountDollars: "100",
   clueText: "",
   claimRadiusMetres: "100",
@@ -68,8 +70,7 @@ export default function CreateDropScreen() {
   const router = useRouter();
   const [form, setForm] = useState<DropForm>(DEFAULT_FORM);
   const [scheduledAt, setScheduledAt] = useState<Date>(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState<"date" | "time" | null>(null);
   const [clueImageUri, setClueImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -135,8 +136,8 @@ export default function CreateDropScreen() {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   async function handleCreate() {
-    const { title, city, clueText, prizeAmountDollars, qrCodeSecret, lat, lng } = form;
-    if (!title || !city || !clueText || !qrCodeSecret || !lat || !lng) {
+    const { title, city, state, clueText, prizeAmountDollars, qrCodeSecret, lat, lng } = form;
+    if (!title || !city || !state || !clueText || !qrCodeSecret || !lat || !lng) {
       Alert.alert("Missing fields", "Please fill in all required fields.");
       return;
     }
@@ -154,7 +155,7 @@ export default function CreateDropScreen() {
       await addDoc(collection(db, "drops"), {
         title,
         description: form.description,
-        city,
+        city: `${city}, ${state.toUpperCase()}`,
         prizeAmountCents: Math.round(parseFloat(prizeAmountDollars) * 100),
         clueText,
         clueImageUrl,
@@ -200,7 +201,6 @@ export default function CreateDropScreen() {
           [
             { label: "Title *", key: "title", placeholder: "Downtown Treasure" },
             { label: "Description", key: "description", placeholder: "Short description..." },
-            { label: "City *", key: "city", placeholder: "San Francisco" },
             { label: "Prize ($) *", key: "prizeAmountDollars", placeholder: "100", keyboard: "decimal-pad" },
             { label: "Clue Text *", key: "clueText", placeholder: "Find the golden statue near...", multiline: true },
             { label: "Claim Radius (m) *", key: "claimRadiusMetres", placeholder: "100", keyboard: "number-pad" },
@@ -220,6 +220,33 @@ export default function CreateDropScreen() {
             />
           </View>
         ))}
+
+        {/* City + State */}
+        <View style={styles.cityRow}>
+          <View style={[styles.field, styles.cityField]}>
+            <Text style={styles.label}>City *</Text>
+            <TextInput
+              style={styles.input}
+              value={form.city}
+              onChangeText={(v) => update("city", v)}
+              placeholder="San Francisco"
+              placeholderTextColor={COLORS.textMuted}
+            />
+          </View>
+          <View style={[styles.field, styles.stateField]}>
+            <Text style={styles.label}>State *</Text>
+            <TextInput
+              style={styles.input}
+              value={form.state}
+              onChangeText={(v) => update("state", v.toUpperCase().replace(/[^A-Z]/g, ""))}
+              placeholder="CA"
+              placeholderTextColor={COLORS.textMuted}
+              autoCapitalize="characters"
+              maxLength={2}
+              autoCorrect={false}
+            />
+          </View>
+        </View>
 
         {/* Lat / Lng — default keyboard so minus sign is accessible */}
         <View style={styles.coordRow}>
@@ -249,7 +276,7 @@ export default function CreateDropScreen() {
           <View style={styles.dateTimeRow}>
             <TouchableOpacity
               style={[styles.input, styles.dateTimeBtn]}
-              onPress={() => setShowDatePicker(true)}
+              onPress={() => setDatePickerMode("date")}
             >
               <Text style={styles.dateTimeText}>
                 {scheduledAt.toLocaleDateString(undefined, {
@@ -259,7 +286,7 @@ export default function CreateDropScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.input, styles.dateTimeBtn]}
-              onPress={() => setShowTimePicker(true)}
+              onPress={() => setDatePickerMode("time")}
             >
               <Text style={styles.dateTimeText}>
                 {scheduledAt.toLocaleTimeString(undefined, {
@@ -269,46 +296,6 @@ export default function CreateDropScreen() {
             </TouchableOpacity>
           </View>
         </View>
-
-        {showDatePicker && (
-          <DateTimePicker
-            value={scheduledAt}
-            mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
-            onChange={(_, date) => {
-              setShowDatePicker(Platform.OS === "ios");
-              if (date) {
-                setScheduledAt((prev) => {
-                  const next = new Date(date);
-                  next.setHours(prev.getHours(), prev.getMinutes());
-                  return next;
-                });
-              }
-              if (Platform.OS !== "ios") setShowDatePicker(false);
-            }}
-          />
-        )}
-
-        {showTimePicker && (
-          <DateTimePicker
-            value={scheduledAt}
-            mode="time"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            onChange={(_, date) => {
-              if (date) setScheduledAt(date);
-              if (Platform.OS !== "ios") setShowTimePicker(false);
-            }}
-          />
-        )}
-
-        {Platform.OS === "ios" && (showDatePicker || showTimePicker) && (
-          <TouchableOpacity
-            style={styles.dateTimeDone}
-            onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}
-          >
-            <Text style={styles.dateTimeDoneText}>Done</Text>
-          </TouchableOpacity>
-        )}
 
         {/* Clue Image Picker */}
         <View style={styles.field}>
@@ -419,6 +406,50 @@ export default function CreateDropScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Date / Time picker modal */}
+      <Modal
+        visible={datePickerMode !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDatePickerMode(null)}
+      >
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerCard}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>
+                {datePickerMode === "date" ? "Select Date" : "Select Time"}
+              </Text>
+              <TouchableOpacity onPress={() => setDatePickerMode(null)}>
+                <Text style={styles.pickerDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {datePickerMode !== null && (
+              <DateTimePicker
+                value={scheduledAt}
+                mode={datePickerMode}
+                display="spinner"
+                onChange={(_, date) => {
+                  if (date) {
+                    if (datePickerMode === "date") {
+                      setScheduledAt((prev) => {
+                        const next = new Date(date);
+                        next.setHours(prev.getHours(), prev.getMinutes());
+                        return next;
+                      });
+                    } else {
+                      setScheduledAt(date);
+                    }
+                  }
+                  if (Platform.OS === "android") setDatePickerMode(null);
+                }}
+                style={styles.pickerControl}
+                textColor={COLORS.text}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -454,13 +485,33 @@ const styles = StyleSheet.create({
   dateTimeRow: { flexDirection: "row", gap: 12 },
   dateTimeBtn: { flex: 1, justifyContent: "center" },
   dateTimeText: { color: COLORS.text, fontSize: 15 },
-  dateTimeDone: {
-    alignSelf: "flex-end",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+  cityRow: { flexDirection: "row", gap: 12 },
+  cityField: { flex: 1 },
+  stateField: { width: 72 },
+
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.4)",
   },
-  dateTimeDoneText: { color: COLORS.primary, fontSize: 15, fontWeight: "700" },
+  pickerCard: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  pickerTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text },
+  pickerDone: { fontSize: 16, fontWeight: "700", color: COLORS.primary },
+  pickerControl: { width: "100%" },
 
   // Image picker
   imagePicker: {
