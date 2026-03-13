@@ -14,7 +14,6 @@ import {
   ActionSheetIOS,
   Platform,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -69,8 +68,8 @@ async function uploadClueImage(localUri: string, dropTitle: string): Promise<str
 export default function CreateDropScreen() {
   const router = useRouter();
   const [form, setForm] = useState<DropForm>(DEFAULT_FORM);
-  const [scheduledAt, setScheduledAt] = useState<Date>(new Date());
-  const [datePickerMode, setDatePickerMode] = useState<"date" | "time" | null>(null);
+  const [dateText, setDateText] = useState("");
+  const [timeText, setTimeText] = useState("");
   const [clueImageUri, setClueImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -135,10 +134,30 @@ export default function CreateDropScreen() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
+  function parseScheduledAt(): Date | null {
+    // date: mm/dd/yyyy, time: hh:mm AM/PM
+    const dateMatch = dateText.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    const timeMatch = timeText.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!dateMatch || !timeMatch) return null;
+    const [, m, d, y] = dateMatch;
+    let [, h, min, meridiem] = timeMatch;
+    let hours = parseInt(h, 10);
+    if (meridiem.toUpperCase() === "PM" && hours !== 12) hours += 12;
+    if (meridiem.toUpperCase() === "AM" && hours === 12) hours = 0;
+    const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), hours, parseInt(min, 10));
+    return isNaN(date.getTime()) ? null : date;
+  }
+
   async function handleCreate() {
     const { title, city, state, clueText, prizeAmountDollars, qrCodeSecret, lat, lng } = form;
     if (!title || !city || !state || !clueText || !qrCodeSecret || !lat || !lng) {
       Alert.alert("Missing fields", "Please fill in all required fields.");
+      return;
+    }
+
+    const scheduledAt = parseScheduledAt();
+    if (!scheduledAt) {
+      Alert.alert("Invalid date/time", "Enter date as mm/dd/yyyy and time as hh:mm AM/PM.");
       return;
     }
 
@@ -170,7 +189,8 @@ export default function CreateDropScreen() {
 
       setSavedDrop({ title, secret: qrCodeSecret });
       setForm(DEFAULT_FORM);
-      setScheduledAt(new Date());
+      setDateText("");
+      setTimeText("");
       setClueImageUri(null);
     } catch (e: any) {
       setIsUploading(false);
@@ -270,30 +290,34 @@ export default function CreateDropScreen() {
           ))}
         </View>
 
-        {/* Scheduled At — date + time pickers */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Scheduled At *</Text>
-          <View style={styles.dateTimeRow}>
-            <TouchableOpacity
-              style={[styles.input, styles.dateTimeBtn]}
-              onPress={() => setDatePickerMode("date")}
-            >
-              <Text style={styles.dateTimeText}>
-                {scheduledAt.toLocaleDateString(undefined, {
-                  month: "short", day: "numeric", year: "numeric",
-                })}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.input, styles.dateTimeBtn]}
-              onPress={() => setDatePickerMode("time")}
-            >
-              <Text style={styles.dateTimeText}>
-                {scheduledAt.toLocaleTimeString(undefined, {
-                  hour: "numeric", minute: "2-digit", hour12: true,
-                })}
-              </Text>
-            </TouchableOpacity>
+        {/* Scheduled At — text inputs */}
+        <View style={styles.dateTimeRow}>
+          <View style={[styles.field, styles.dateField]}>
+            <Text style={styles.label}>Date *</Text>
+            <TextInput
+              style={styles.input}
+              value={dateText}
+              onChangeText={setDateText}
+              placeholder="mm/dd/yyyy"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numbers-and-punctuation"
+              autoCorrect={false}
+              maxLength={10}
+            />
+          </View>
+          <View style={[styles.field, styles.timeField]}>
+            <Text style={styles.label}>Time *</Text>
+            <TextInput
+              style={styles.input}
+              value={timeText}
+              onChangeText={setTimeText}
+              placeholder="hh:mm AM"
+              placeholderTextColor={COLORS.textMuted}
+              keyboardType="numbers-and-punctuation"
+              autoCorrect={false}
+              autoCapitalize="characters"
+              maxLength={8}
+            />
           </View>
         </View>
 
@@ -407,49 +431,6 @@ export default function CreateDropScreen() {
         </View>
       </Modal>
 
-      {/* Date / Time picker modal */}
-      <Modal
-        visible={datePickerMode !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setDatePickerMode(null)}
-      >
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerCard}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>
-                {datePickerMode === "date" ? "Select Date" : "Select Time"}
-              </Text>
-              <TouchableOpacity onPress={() => setDatePickerMode(null)}>
-                <Text style={styles.pickerDone}>Done</Text>
-              </TouchableOpacity>
-            </View>
-            {datePickerMode !== null && (
-              <DateTimePicker
-                value={scheduledAt}
-                mode={datePickerMode}
-                display="spinner"
-                onChange={(_, date) => {
-                  if (date) {
-                    if (datePickerMode === "date") {
-                      setScheduledAt((prev) => {
-                        const next = new Date(date);
-                        next.setHours(prev.getHours(), prev.getMinutes());
-                        return next;
-                      });
-                    } else {
-                      setScheduledAt(date);
-                    }
-                  }
-                  if (Platform.OS === "android") setDatePickerMode(null);
-                }}
-                style={styles.pickerControl}
-                textColor={COLORS.text}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -483,35 +464,11 @@ const styles = StyleSheet.create({
   coordField: { flex: 1 },
 
   dateTimeRow: { flexDirection: "row", gap: 12 },
-  dateTimeBtn: { flex: 1, justifyContent: "center" },
-  dateTimeText: { color: COLORS.text, fontSize: 15 },
+  dateField: { flex: 3 },
+  timeField: { flex: 2 },
   cityRow: { flexDirection: "row", gap: 12 },
   cityField: { flex: 1 },
   stateField: { width: 72 },
-
-  pickerOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: "rgba(0,0,0,0.4)",
-  },
-  pickerCard: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 32,
-  },
-  pickerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  pickerTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text },
-  pickerDone: { fontSize: 16, fontWeight: "700", color: COLORS.primary },
-  pickerControl: { width: "100%" },
 
   // Image picker
   imagePicker: {

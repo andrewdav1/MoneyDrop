@@ -21,7 +21,7 @@ import type { Drop, DropStatus } from "@/types";
 // ---------------------------------------------------------------------------
 
 const STATUS_META: Record<DropStatus, { label: string; color: string }> = {
-  scheduled: { label: "Scheduled", color: COLORS.secondary },
+  scheduled: { label: "Upcoming", color: COLORS.secondary },
   active:    { label: "Active",    color: COLORS.success },
   claimed:   { label: "Claimed",   color: COLORS.textMuted },
   expired:   { label: "Expired",   color: COLORS.danger },
