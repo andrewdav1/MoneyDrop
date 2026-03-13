@@ -1,27 +1,26 @@
-import {
-  signInWithPhoneNumber,
-  ConfirmationResult,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
+import rnAuth, {
+  FirebaseAuthTypes,
+} from "@react-native-firebase/auth";
+import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "./firebase";
 
-// Stored between the phone and verify screens.
-// signInWithPhoneNumber returns a ConfirmationResult whose confirm()
-// method handles credential creation — no RecaptchaVerifier needed on native.
-let _pendingConfirmation: ConfirmationResult | null = null;
+// ConfirmationResult from @react-native-firebase/auth — stored between screens.
+// Uses APNs (iOS) / Play Integrity (Android) to verify the device; no
+// RecaptchaVerifier or WebView required.
+let _pendingConfirmation: FirebaseAuthTypes.ConfirmationResult | null = null;
 
 /**
  * Send an SMS verification code to the given phone number.
- * On native (iOS/Android) Firebase uses APNs/Play Integrity — no reCAPTCHA.
- * Returns a verificationId for display purposes only (passed as URL param).
+ * Uses @react-native-firebase/auth which handles native verification
+ * (APNs silent push on iOS, SafetyNet on Android) automatically.
  */
 export async function sendSmsCode(phoneNumber: string): Promise<string> {
-  _pendingConfirmation = await signInWithPhoneNumber(auth, phoneNumber);
-  return _pendingConfirmation.verificationId;
+  _pendingConfirmation = await rnAuth().signInWithPhoneNumber(phoneNumber);
+  return _pendingConfirmation.verificationId ?? "";
 }
 
 /**
- * Confirm the OTP code and sign in.
+ * Confirm the OTP code and sign in via @react-native-firebase/auth.
  */
 export async function confirmSmsCode(
   _verificationId: string,
