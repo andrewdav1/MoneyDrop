@@ -61,6 +61,15 @@ module.exports = {
       },
     ],
     [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Allow MoneyDrop to access your photos to upload clue images.",
+        cameraPermission:
+          "Allow MoneyDrop to use your camera to capture clue images.",
+      },
+    ],
+    [
       "expo-location",
       {
         locationAlwaysAndWhenInUsePermission:
