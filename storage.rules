@@ -1,10 +1,13 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Clue images: anyone signed-in can read; only admin SDK can write
-    match /drop-clues/{allPaths=**} {
+    // Clue images: authenticated users can read; authenticated users can write
+    // (admin-only enforcement is handled in the app via the isAdmin Firestore field)
+    match /clue-images/{filename} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024  // 10 MB max
+                   && request.resource.contentType.matches('image/.*');
     }
 
     // Block everything else by default

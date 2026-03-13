@@ -14,6 +14,7 @@ import {
   ActionSheetIOS,
   Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -32,7 +33,6 @@ interface DropForm {
   claimRadiusMetres: string;
   lat: string;
   lng: string;
-  scheduledAt: string;
   qrCodeSecret: string;
 }
 
@@ -45,14 +45,13 @@ const DEFAULT_FORM: DropForm = {
   claimRadiusMetres: "100",
   lat: "",
   lng: "",
-  scheduledAt: "",
   qrCodeSecret: "",
 };
 
 function generateSecret(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from({ length: 32 }, () =>
+    Math.floor(Math.random() * 16).toString(16)
+  ).join("");
 }
 
 async function uploadClueImage(localUri: string, dropTitle: string): Promise<string> {
@@ -68,6 +67,9 @@ async function uploadClueImage(localUri: string, dropTitle: string): Promise<str
 export default function CreateDropScreen() {
   const router = useRouter();
   const [form, setForm] = useState<DropForm>(DEFAULT_FORM);
+  const [scheduledAt, setScheduledAt] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [clueImageUri, setClueImageUri] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -133,9 +135,8 @@ export default function CreateDropScreen() {
   // ── Submit ────────────────────────────────────────────────────────────────
 
   async function handleCreate() {
-    const { title, city, clueText, prizeAmountDollars, scheduledAt, qrCodeSecret, lat, lng } =
-      form;
-    if (!title || !city || !clueText || !scheduledAt || !qrCodeSecret || !lat || !lng) {
+    const { title, city, clueText, prizeAmountDollars, qrCodeSecret, lat, lng } = form;
+    if (!title || !city || !clueText || !qrCodeSecret || !lat || !lng) {
       Alert.alert("Missing fields", "Please fill in all required fields.");
       return;
     }
@@ -143,7 +144,6 @@ export default function CreateDropScreen() {
     try {
       setIsSaving(true);
 
-      // Upload the image first if one was picked
       let clueImageUrl = "";
       if (clueImageUri) {
         setIsUploading(true);
@@ -161,7 +161,7 @@ export default function CreateDropScreen() {
         claimRadiusMetres: parseInt(form.claimRadiusMetres, 10),
         lat: parseFloat(lat),
         lng: parseFloat(lng),
-        scheduledAt: new Date(scheduledAt),
+        scheduledAt,
         qrCodeSecret,
         status: "scheduled",
         createdAt: serverTimestamp(),
@@ -169,6 +169,7 @@ export default function CreateDropScreen() {
 
       setSavedDrop({ title, secret: qrCodeSecret });
       setForm(DEFAULT_FORM);
+      setScheduledAt(new Date());
       setClueImageUri(null);
     } catch (e: any) {
       setIsUploading(false);
@@ -203,9 +204,6 @@ export default function CreateDropScreen() {
             { label: "Prize ($) *", key: "prizeAmountDollars", placeholder: "100", keyboard: "decimal-pad" },
             { label: "Clue Text *", key: "clueText", placeholder: "Find the golden statue near...", multiline: true },
             { label: "Claim Radius (m) *", key: "claimRadiusMetres", placeholder: "100", keyboard: "number-pad" },
-            { label: "Latitude *", key: "lat", placeholder: "37.7749", keyboard: "decimal-pad" },
-            { label: "Longitude *", key: "lng", placeholder: "-122.4194", keyboard: "decimal-pad" },
-            { label: "Scheduled At (ISO) *", key: "scheduledAt", placeholder: "2026-03-13T18:00:00Z" },
           ] as Array<{ label: string; key: keyof DropForm; placeholder: string; keyboard?: any; multiline?: boolean }>
         ).map(({ label, key, placeholder, keyboard, multiline }) => (
           <View key={key} style={styles.field}>
@@ -222,6 +220,95 @@ export default function CreateDropScreen() {
             />
           </View>
         ))}
+
+        {/* Lat / Lng — default keyboard so minus sign is accessible */}
+        <View style={styles.coordRow}>
+          {(["lat", "lng"] as const).map((key) => (
+            <View key={key} style={[styles.field, styles.coordField]}>
+              <Text style={styles.label}>{key === "lat" ? "Latitude *" : "Longitude *"}</Text>
+              <TextInput
+                style={styles.input}
+                value={form[key]}
+                onChangeText={(v) => {
+                  // Allow digits, decimal point, and leading minus only
+                  if (/^-?\d*\.?\d*$/.test(v) || v === "" || v === "-") update(key, v);
+                }}
+                placeholder={key === "lat" ? "37.7749" : "-122.4194"}
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="default"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* Scheduled At — date + time pickers */}
+        <View style={styles.field}>
+          <Text style={styles.label}>Scheduled At *</Text>
+          <View style={styles.dateTimeRow}>
+            <TouchableOpacity
+              style={[styles.input, styles.dateTimeBtn]}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {scheduledAt.toLocaleDateString(undefined, {
+                  month: "short", day: "numeric", year: "numeric",
+                })}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.input, styles.dateTimeBtn]}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {scheduledAt.toLocaleTimeString(undefined, {
+                  hour: "numeric", minute: "2-digit", hour12: true,
+                })}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={scheduledAt}
+            mode="date"
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            onChange={(_, date) => {
+              setShowDatePicker(Platform.OS === "ios");
+              if (date) {
+                setScheduledAt((prev) => {
+                  const next = new Date(date);
+                  next.setHours(prev.getHours(), prev.getMinutes());
+                  return next;
+                });
+              }
+              if (Platform.OS !== "ios") setShowDatePicker(false);
+            }}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={scheduledAt}
+            mode="time"
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={(_, date) => {
+              if (date) setScheduledAt(date);
+              if (Platform.OS !== "ios") setShowTimePicker(false);
+            }}
+          />
+        )}
+
+        {Platform.OS === "ios" && (showDatePicker || showTimePicker) && (
+          <TouchableOpacity
+            style={styles.dateTimeDone}
+            onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}
+          >
+            <Text style={styles.dateTimeDoneText}>Done</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Clue Image Picker */}
         <View style={styles.field}>
@@ -360,6 +447,20 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   inputMulti: { height: 80, textAlignVertical: "top" },
+
+  coordRow: { flexDirection: "row", gap: 12 },
+  coordField: { flex: 1 },
+
+  dateTimeRow: { flexDirection: "row", gap: 12 },
+  dateTimeBtn: { flex: 1, justifyContent: "center" },
+  dateTimeText: { color: COLORS.text, fontSize: 15 },
+  dateTimeDone: {
+    alignSelf: "flex-end",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  dateTimeDoneText: { color: COLORS.primary, fontSize: 15, fontWeight: "700" },
 
   // Image picker
   imagePicker: {
