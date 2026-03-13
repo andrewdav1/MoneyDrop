@@ -18,6 +18,7 @@
     "indexes": "firestore.indexes.json"
   },
   "storage": {
+    "bucket": "moneydrop-cb71e.firebasestorage.app",
     "rules": "storage.rules"
   },
   "emulators": {
