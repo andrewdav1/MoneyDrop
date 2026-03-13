@@ -53,6 +53,14 @@ module.exports = {
   plugins: [
     "@react-native-firebase/app",
     "@react-native-firebase/auth",
+    [
+      "expo-build-properties",
+      {
+        ios: {
+          useFrameworks: "static",
+        },
+      },
+    ],
     "expo-router",
     "expo-secure-store",
     [
