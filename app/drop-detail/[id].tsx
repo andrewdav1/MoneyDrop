@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { subscribeToDrop } from "@/lib/firestore";
 import { COLORS } from "@/constants/config";
 import type { Drop, DropStatus } from "@/types";
@@ -47,6 +47,7 @@ const STATUS_COLOR: Record<DropStatus, string> = {
 
 export default function DropDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [drop, setDrop] = useState<Drop | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -58,9 +59,16 @@ export default function DropDetailScreen() {
     });
   }, [id]);
 
+  const backButton = (
+    <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+      <Text style={styles.backBtnText}>‹ Back</Text>
+    </TouchableOpacity>
+  );
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.center}>
+        <Stack.Screen options={{ headerLeft: () => backButton }} />
         <ActivityIndicator color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -69,6 +77,7 @@ export default function DropDetailScreen() {
   if (!drop) {
     return (
       <SafeAreaView style={styles.center}>
+        <Stack.Screen options={{ headerLeft: () => backButton }} />
         <Text style={styles.muted}>Drop not found.</Text>
       </SafeAreaView>
     );
@@ -78,6 +87,7 @@ export default function DropDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <Stack.Screen options={{ headerLeft: () => backButton, title: drop.title || "Drop Details" }} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Meta row */}
@@ -131,6 +141,8 @@ export default function DropDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
+  backBtn: { paddingHorizontal: 4 },
+  backBtnText: { color: COLORS.primary, fontSize: 17, fontWeight: "600" },
   scroll: { padding: 24, paddingBottom: 48 },
   muted: { color: COLORS.textMuted, fontSize: 15 },
 
