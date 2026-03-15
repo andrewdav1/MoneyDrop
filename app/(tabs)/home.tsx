@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
 
   // Pills
   pillScroll: { flexGrow: 0, marginBottom: 16 },
-  pillRow: { paddingHorizontal: 24, gap: 8 },
+  pillRow: { paddingLeft: 24, paddingRight: 24, gap: 8 },
   pill: {
     backgroundColor: COLORS.surface,
     borderRadius: 999,
