@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList, ScrollView } from "react-native";
+import { View, Text, Image, ActivityIndicator, StyleSheet, TouchableOpacity, FlatList, ScrollView } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { subscribeToAllDrops } from "@/lib/firestore";
@@ -100,36 +100,47 @@ function UpcomingCard({ item }: { item: Drop }) {
 function MutedCard({ item, tag, returnFilter }: { item: Drop; tag: string; returnFilter: Filter }) {
   const router = useRouter();
   const prizeStr = `$${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}`;
+  const [prefetching, setPrefetching] = useState(false);
+
+  const handlePress = async () => {
+    if (item.clueImageUrl) {
+      setPrefetching(true);
+      await Image.prefetch(item.clueImageUrl).catch(() => {});
+      setPrefetching(false);
+    }
+    router.push({
+      pathname: "/drop-detail/[id]",
+      params: {
+        id: item.id,
+        title: item.title,
+        city: item.city,
+        status: item.status,
+        clueText: item.clueText ?? "",
+        clueImageUrl: item.clueImageUrl ?? "",
+        prizeAmountCents: String(item.prizeAmountCents ?? 0),
+        scheduledAtMs: String(toMs(item.scheduledAt)),
+        returnFilter,
+      },
+    });
+  };
 
   return (
     <TouchableOpacity
       style={[styles.card, styles.cardMuted]}
-      onPress={() => {
-        if (item.clueImageUrl) Image.prefetch(item.clueImageUrl).catch(() => {});
-        router.push({
-          pathname: "/drop-detail/[id]",
-          params: {
-            id: item.id,
-            title: item.title,
-            city: item.city,
-            status: item.status,
-            clueText: item.clueText ?? "",
-            clueImageUrl: item.clueImageUrl ?? "",
-            prizeAmountCents: String(item.prizeAmountCents ?? 0),
-            scheduledAtMs: String(toMs(item.scheduledAt)),
-            returnFilter,
-          },
-        });
-      }}
+      onPress={handlePress}
       activeOpacity={0.7}
+      disabled={prefetching}
     >
       <View style={styles.cardTop}>
         <Text style={item.status === "claimed" ? styles.claimedTag : styles.expiredTag}>{tag}</Text>
-        <Text style={styles.city}>📍 {item.city}</Text>
+        {prefetching
+          ? <ActivityIndicator size="small" color={COLORS.primary} />
+          : <Text style={styles.city}>📍 {item.city}</Text>
+        }
       </View>
       <Text style={styles.dropTitleMuted}>{item.title}</Text>
       <Text style={styles.prizeMuted}>{prizeStr}</Text>
-      <Text style={styles.tapHint}>Tap to view details →</Text>
+      <Text style={styles.tapHint}>{prefetching ? "Loading…" : "Tap to view details →"}</Text>
     </TouchableOpacity>
   );
 }
