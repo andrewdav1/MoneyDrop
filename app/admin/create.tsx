@@ -19,6 +19,7 @@ import { useRouter } from "expo-router";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import QRCode from "react-native-qrcode-svg";
 import { db, storage } from "@/lib/firebase";
 import { COLORS } from "@/constants/config";
@@ -55,11 +56,20 @@ function generateSecret(): string {
   ).join("");
 }
 
+async function compressImage(localUri: string): Promise<string> {
+  const result = await ImageManipulator.manipulateAsync(
+    localUri,
+    [{ resize: { width: 800 } }],
+    { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG },
+  );
+  return result.uri;
+}
+
 async function uploadClueImage(localUri: string, dropTitle: string): Promise<string> {
-  const response = await fetch(localUri);
+  const compressed = await compressImage(localUri);
+  const response = await fetch(compressed);
   const blob = await response.blob();
-  const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const filename = `clue-images/${Date.now()}-${dropTitle.replace(/\s+/g, "-")}.${ext}`;
+  const filename = `clue-images/${Date.now()}-${dropTitle.replace(/\s+/g, "-")}.jpg`;
   const storageRef = ref(storage, filename);
   await uploadBytes(storageRef, blob);
   return getDownloadURL(storageRef);

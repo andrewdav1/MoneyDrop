@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import QRCode from "react-native-qrcode-svg";
 import { storage } from "@/lib/firebase";
 import { subscribeToDrop, updateDrop, deleteDrop } from "@/lib/firestore";
@@ -84,11 +85,20 @@ function parseScheduledAt(dateText: string, timeText: string): Date | null {
   return isNaN(date.getTime()) ? null : date;
 }
 
+async function compressImage(localUri: string): Promise<string> {
+  const result = await ImageManipulator.manipulateAsync(
+    localUri,
+    [{ resize: { width: 800 } }],
+    { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG },
+  );
+  return result.uri;
+}
+
 async function uploadClueImage(localUri: string, title: string): Promise<string> {
-  const response = await fetch(localUri);
+  const compressed = await compressImage(localUri);
+  const response = await fetch(compressed);
   const blob = await response.blob();
-  const ext = localUri.split(".").pop()?.toLowerCase() ?? "jpg";
-  const filename = `clue-images/${Date.now()}-${title.replace(/\s+/g, "-")}.${ext}`;
+  const filename = `clue-images/${Date.now()}-${title.replace(/\s+/g, "-")}.jpg`;
   const storageRef = ref(storage, filename);
   await uploadBytes(storageRef, blob);
   return getDownloadURL(storageRef);
