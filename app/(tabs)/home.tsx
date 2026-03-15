@@ -256,11 +256,11 @@ const styles = StyleSheet.create({
     overflow: "visible",
   },
   pill: {
-    flex: 1,
     height: 38,
+    minWidth: 72,
     backgroundColor: COLORS.surface,
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
     alignItems: "center",
