@@ -99,7 +99,6 @@ export default function DropDetailScreen() {
 
   const [drop, setDrop] = useState<Drop | null>(initialDrop);
   const [isLoading, setIsLoading] = useState(initialDrop === null);
-  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -156,13 +155,12 @@ export default function DropDetailScreen() {
         <View style={styles.imageContainer}>
           {drop.clueImageUrl ? (
             <>
-              {/* Dark background renders instantly; image fades in on top */}
+              {/* Skeleton shows instantly; image renders on top as it loads */}
               <View style={styles.imageSkeleton} />
               <Image
                 source={{ uri: drop.clueImageUrl }}
-                style={[styles.clueImage, !imageLoaded && styles.imageHidden]}
+                style={styles.clueImage}
                 resizeMode="cover"
-                onLoad={() => setImageLoaded(true)}
               />
             </>
           ) : (
@@ -260,7 +258,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: IMAGE_HEIGHT,
   },
-  imageHidden: { opacity: 0 },
   imagePlaceholder: {
     flex: 1,
     alignItems: "center",
