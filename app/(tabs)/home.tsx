@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList, ScrollView } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { subscribeToAllDrops } from "@/lib/firestore";
@@ -180,12 +180,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Filter pills */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillRow}
-        style={styles.pillScroll}
-      >
+      <View style={styles.pillRow}>
         {FILTERS.map(({ key, label }) => {
           const selected = filter === key;
           return (
@@ -201,7 +196,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Drop list */}
       {isLoading ? (
@@ -253,15 +248,23 @@ const styles = StyleSheet.create({
   adminBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: "600" },
 
   // Pills
-  pillScroll: { flexGrow: 0, marginBottom: 16, paddingBottom: 4 },
-  pillRow: { paddingLeft: 24, paddingRight: 24, gap: 8 },
+  pillRow: {
+    flexDirection: "row",
+    paddingHorizontal: 24,
+    gap: 8,
+    marginBottom: 16,
+    overflow: "visible",
+  },
   pill: {
+    flex: 1,
+    height: 38,
     backgroundColor: COLORS.surface,
     borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pillSelected: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   pillText: { fontSize: 14, fontWeight: "600", color: COLORS.textMuted },
