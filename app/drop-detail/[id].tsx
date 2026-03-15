@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, Image, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { subscribeToDrop } from "@/lib/firestore";
 import { COLORS } from "@/constants/config";
 import type { Drop, DropStatus } from "@/types";
@@ -41,6 +41,8 @@ const STATUS_COLOR: Record<DropStatus, string> = {
   expired:   COLORS.textMuted,
 };
 
+const IMAGE_HEIGHT = 240;
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -68,8 +70,7 @@ export default function DropDetailScreen() {
 
   const router = useRouter();
 
-  // Build initial drop from route params so the screen renders instantly.
-  // The Firestore subscription below will silently update if data changed.
+  // Build initial drop from route params — instant render, no spinner.
   const initialDrop: Drop | null = title
     ? {
         id: id ?? "",
@@ -91,6 +92,7 @@ export default function DropDetailScreen() {
 
   const [drop, setDrop] = useState<Drop | null>(initialDrop);
   const [isLoading, setIsLoading] = useState(initialDrop === null);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -100,16 +102,9 @@ export default function DropDetailScreen() {
     });
   }, [id]);
 
-  const backButton = (
-    <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
-      <Text style={styles.backBtnText}>‹ Back</Text>
-    </TouchableOpacity>
-  );
-
   if (isLoading) {
     return (
       <SafeAreaView style={styles.center}>
-        <Stack.Screen options={{ headerLeft: () => backButton }} />
         <ActivityIndicator color={COLORS.primary} />
       </SafeAreaView>
     );
@@ -118,7 +113,9 @@ export default function DropDetailScreen() {
   if (!drop) {
     return (
       <SafeAreaView style={styles.center}>
-        <Stack.Screen options={{ headerLeft: () => backButton }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
+          <Text style={styles.backChevron}>‹</Text>
+        </TouchableOpacity>
         <Text style={styles.muted}>Drop not found.</Text>
       </SafeAreaView>
     );
@@ -127,8 +124,13 @@ export default function DropDetailScreen() {
   const statusColor = STATUS_COLOR[drop.status];
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <Stack.Screen options={{ headerLeft: () => backButton, title: drop.title || "Drop Details" }} />
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      {/* Custom back row */}
+      <TouchableOpacity onPress={() => router.back()} style={styles.backRow} hitSlop={12}>
+        <Text style={styles.backChevron}>‹</Text>
+        <Text style={styles.backLabel}>{drop.title || "Drop Details"}</Text>
+      </TouchableOpacity>
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Meta row */}
@@ -141,14 +143,25 @@ export default function DropDetailScreen() {
           <Text style={styles.city}>📍 {drop.city}</Text>
         </View>
 
-        {/* Clue image */}
-        {drop.clueImageUrl ? (
-          <Image source={{ uri: drop.clueImageUrl }} style={styles.clueImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.clueImagePlaceholder}>
-            <Text style={styles.placeholderText}>📸 No clue image</Text>
-          </View>
-        )}
+        {/* Clue image — fixed container so layout never shifts */}
+        <View style={styles.imageContainer}>
+          {drop.clueImageUrl ? (
+            <>
+              {/* Skeleton placeholder always rendered at full size */}
+              {!imageLoaded && <View style={styles.imageSkeleton} />}
+              <Image
+                source={{ uri: drop.clueImageUrl }}
+                style={[styles.clueImage, !imageLoaded && styles.imageHidden]}
+                resizeMode="cover"
+                onLoad={() => setImageLoaded(true)}
+              />
+            </>
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Text style={styles.placeholderText}>📸 No clue image</Text>
+            </View>
+          )}
+        </View>
 
         {/* Clue */}
         <View style={styles.section}>
@@ -182,15 +195,25 @@ export default function DropDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { flex: 1, backgroundColor: COLORS.background, alignItems: "center", justifyContent: "center" },
-  backBtnText: { color: COLORS.primary, fontSize: 17, fontWeight: "600", paddingLeft: 8 },
-  scroll: { padding: 24, paddingBottom: 48 },
   muted: { color: COLORS.textMuted, fontSize: 15 },
+
+  // Custom header
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backChevron: { fontSize: 32, color: COLORS.primary, lineHeight: 36, marginRight: 6 },
+  backLabel: { fontSize: 17, fontWeight: "600", color: COLORS.primary },
+
+  scroll: { paddingHorizontal: 24, paddingBottom: 48 },
 
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statusBadge: {
     borderRadius: 6,
@@ -201,22 +224,31 @@ const styles = StyleSheet.create({
   statusBadgeText: { fontSize: 13, fontWeight: "700" },
   city: { fontSize: 14, color: COLORS.textMuted, fontWeight: "500" },
 
+  // Image
+  imageContainer: {
+    width: "100%",
+    height: IMAGE_HEIGHT,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 20,
+    backgroundColor: COLORS.surface,
+  },
+  imageSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: COLORS.surface,
+  },
   clueImage: {
     width: "100%",
-    height: 240,
-    borderRadius: 16,
-    marginBottom: 24,
+    height: IMAGE_HEIGHT,
   },
-  clueImagePlaceholder: {
-    width: "100%",
-    height: 240,
-    borderRadius: 16,
-    backgroundColor: COLORS.surface,
+  imageHidden: { opacity: 0 },
+  imagePlaceholder: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: 16,
   },
   placeholderText: { color: COLORS.textMuted, fontSize: 15 },
 
