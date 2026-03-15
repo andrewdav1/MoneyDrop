@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   adminBtnText: { color: COLORS.textMuted, fontSize: 13, fontWeight: "600" },
 
   // Pills
-  pillScroll: { flexGrow: 0, marginBottom: 16 },
+  pillScroll: { flexGrow: 0, marginBottom: 16, paddingBottom: 4 },
   pillRow: { paddingLeft: 24, paddingRight: 24, gap: 8 },
   pill: {
     backgroundColor: COLORS.surface,
