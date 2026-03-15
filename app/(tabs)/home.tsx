@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, Image, StyleSheet, TouchableOpacity, FlatList, ScrollView } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { subscribeToAllDrops } from "@/lib/firestore";
 import { CountdownTimer } from "@/components/CountdownTimer";
@@ -97,26 +97,30 @@ function UpcomingCard({ item }: { item: Drop }) {
   );
 }
 
-function MutedCard({ item, tag }: { item: Drop; tag: string }) {
+function MutedCard({ item, tag, returnFilter }: { item: Drop; tag: string; returnFilter: Filter }) {
   const router = useRouter();
   const prizeStr = `$${((item.prizeAmountCents ?? 0) / 100).toFixed(2)}`;
 
   return (
     <TouchableOpacity
       style={[styles.card, styles.cardMuted]}
-      onPress={() => router.push({
-        pathname: "/drop-detail/[id]",
-        params: {
-          id: item.id,
-          title: item.title,
-          city: item.city,
-          status: item.status,
-          clueText: item.clueText ?? "",
-          clueImageUrl: item.clueImageUrl ?? "",
-          prizeAmountCents: String(item.prizeAmountCents ?? 0),
-          scheduledAtMs: String(toMs(item.scheduledAt)),
-        },
-      })}
+      onPress={() => {
+        if (item.clueImageUrl) Image.prefetch(item.clueImageUrl).catch(() => {});
+        router.push({
+          pathname: "/drop-detail/[id]",
+          params: {
+            id: item.id,
+            title: item.title,
+            city: item.city,
+            status: item.status,
+            clueText: item.clueText ?? "",
+            clueImageUrl: item.clueImageUrl ?? "",
+            prizeAmountCents: String(item.prizeAmountCents ?? 0),
+            scheduledAtMs: String(toMs(item.scheduledAt)),
+            returnFilter,
+          },
+        });
+      }}
       activeOpacity={0.7}
     >
       <View style={styles.cardTop}>
@@ -137,10 +141,18 @@ function MutedCard({ item, tag }: { item: Drop; tag: string }) {
 export default function HomeScreen() {
   const router = useRouter();
   const isAdmin = useAuthStore((s) => s.appUser?.isAdmin ?? false);
+  const { returnFilter } = useLocalSearchParams<{ returnFilter?: Filter }>();
 
   const [allDrops, setAllDrops] = useState<Drop[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("active");
+
+  // Restore filter when returning from drop-detail
+  useEffect(() => {
+    if (returnFilter && ["active", "scheduled", "claimed", "expired"].includes(returnFilter)) {
+      setFilter(returnFilter);
+    }
+  }, [returnFilter]);
 
   useEffect(() => {
     return subscribeToAllDrops((drops) => {
@@ -154,8 +166,8 @@ export default function HomeScreen() {
   function renderDrop({ item }: { item: Drop }) {
     if (item.status === "active")    return <ActiveCard item={item} />;
     if (item.status === "scheduled") return <UpcomingCard item={item} />;
-    if (item.status === "claimed")   return <MutedCard item={item} tag="✅ CLAIMED" />;
-    return <MutedCard item={item} tag="💨 EXPIRED" />;
+    if (item.status === "claimed")   return <MutedCard item={item} tag="✅ CLAIMED" returnFilter={filter} />;
+    return <MutedCard item={item} tag="💨 EXPIRED" returnFilter={filter} />;
   }
 
   return (

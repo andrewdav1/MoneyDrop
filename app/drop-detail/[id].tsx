@@ -57,6 +57,7 @@ export default function DropDetailScreen() {
     clueImageUrl,
     prizeAmountCents,
     scheduledAtMs,
+    returnFilter,
   } = useLocalSearchParams<{
     id: string;
     title?: string;
@@ -66,9 +67,15 @@ export default function DropDetailScreen() {
     clueImageUrl?: string;
     prizeAmountCents?: string;
     scheduledAtMs?: string;
+    returnFilter?: string;
   }>();
 
   const router = useRouter();
+  const goBack = () =>
+    router.replace({
+      pathname: "/(tabs)/home",
+      params: { returnFilter: returnFilter ?? "active" },
+    });
 
   // Build initial drop from route params — instant render, no spinner.
   const initialDrop: Drop | null = title
@@ -113,7 +120,7 @@ export default function DropDetailScreen() {
   if (!drop) {
     return (
       <SafeAreaView style={styles.center}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backRow}>
+        <TouchableOpacity onPress={goBack} style={styles.backRow}>
           <Text style={styles.backChevron}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.muted}>Drop not found.</Text>
@@ -127,7 +134,7 @@ export default function DropDetailScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Custom back row */}
       <View style={styles.backRow}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+        <TouchableOpacity onPress={goBack} hitSlop={12} style={styles.backBtn}>
           <Text style={styles.backChevron}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.backLabel} numberOfLines={1}>{drop.title || "Drop Details"}</Text>
@@ -207,7 +214,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backBtn: { padding: 4 },
-  backChevron: { fontSize: 36, color: COLORS.primary, lineHeight: 40 },
+  backChevron: { fontSize: 40, color: COLORS.primary, lineHeight: 44 },
   backLabel: {
     position: "absolute",
     left: 0,
