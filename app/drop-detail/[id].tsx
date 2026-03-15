@@ -126,10 +126,12 @@ export default function DropDetailScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Custom back row */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backRow} hitSlop={12}>
-        <Text style={styles.backChevron}>‹</Text>
-        <Text style={styles.backLabel}>{drop.title || "Drop Details"}</Text>
-      </TouchableOpacity>
+      <View style={styles.backRow}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
+          <Text style={styles.backChevron}>‹</Text>
+        </TouchableOpacity>
+        <Text style={styles.backLabel} numberOfLines={1}>{drop.title || "Drop Details"}</Text>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -147,8 +149,8 @@ export default function DropDetailScreen() {
         <View style={styles.imageContainer}>
           {drop.clueImageUrl ? (
             <>
-              {/* Skeleton placeholder always rendered at full size */}
-              {!imageLoaded && <View style={styles.imageSkeleton} />}
+              {/* Dark background renders instantly; image fades in on top */}
+              <View style={styles.imageSkeleton} />
               <Image
                 source={{ uri: drop.clueImageUrl }}
                 style={[styles.clueImage, !imageLoaded && styles.imageHidden]}
@@ -201,11 +203,21 @@ const styles = StyleSheet.create({
   backRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  backChevron: { fontSize: 32, color: COLORS.primary, lineHeight: 36, marginRight: 6 },
-  backLabel: { fontSize: 17, fontWeight: "600", color: COLORS.primary },
+  backBtn: { padding: 4 },
+  backChevron: { fontSize: 36, color: COLORS.primary, lineHeight: 40 },
+  backLabel: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "600",
+    color: COLORS.text,
+    zIndex: -1,
+  },
 
   scroll: { paddingHorizontal: 24, paddingBottom: 48 },
 
